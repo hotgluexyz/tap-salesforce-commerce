@@ -33,7 +33,6 @@ class TapSalesforce(Tap):
         th.Property(
             "access_token",
             th.StringType,
-            required=True,
         ),
         th.Property(
             "start_date",
