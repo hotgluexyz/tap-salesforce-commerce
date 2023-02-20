@@ -6,33 +6,39 @@ from typing import Any, Dict, Optional, Iterable
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.streams import RESTStream
-from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
-
-
-SCHEMAS_DIR = Path(__file__).parent / Path("./schemas")
+from memoization import cached
+from tap_salesforce.auth import SalesForceAuth
 
 
 class SalesforceStream(RESTStream):
     """Salesforce stream class."""
 
+    api_version = "v23_1"
+    access_token = None
+    expires_in = None
+    last_refreshed = None
+
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
         domain = self.config["domain"]
-        url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/-/dw/data/v23_1"
+        site_id = self.config["site_id"]
+        if self.name in ["product_variations"]:
+            url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
+        else:
+            # Non site specific URL
+            url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/-/dw/data/{self.api_version}"
         return url_base
 
-    records_jsonpath = "$[*]" 
-    next_page_token_jsonpath = "$.next" 
+    records_jsonpath = "$[*]"
+    next_page_token_jsonpath = "$.next"
 
     @property
-    def authenticator(self) -> BearerTokenAuthenticator:
+    @cached
+    def authenticator(self) -> SalesForceAuth:
         """Return a new authenticator object."""
-        return BearerTokenAuthenticator.create_for_stream(
-            self,
-            token=self.config.get("access_token")
-        )
+        return SalesForceAuth.create_for_stream(self)
 
     @property
     def http_headers(self) -> dict:
@@ -41,6 +47,7 @@ class SalesforceStream(RESTStream):
         if "user_agent" in self.config:
             headers["User-Agent"] = self.config.get("user_agent")
             headers["Accept"] = "application/json"
+        headers["x-dw-client-id"] = str(self.config.get("client_id"))
         return headers
 
     def get_next_page_token(
@@ -63,8 +70,11 @@ class SalesforceStream(RESTStream):
         params: dict = {}
         if next_page_token:
             params["start"] = next_page_token
+        if self.name == "products":
+            #     #send expand params to get extra values
+            params["expand"] = "prices"
         return params
-    
+
     def validate_response(self, response: requests.Response) -> None:
         if (
             response.status_code in self.extra_retry_statuses
@@ -72,7 +82,10 @@ class SalesforceStream(RESTStream):
         ):
             msg = self.response_error_message(response)
             raise RetriableAPIError(msg, response)
-        elif 400 <= response.status_code < 500 and response.json()["fault"]["type"] != "ProductNotFoundException":
+        elif (
+            400 <= response.status_code < 500
+            and response.json()["fault"]["type"] != "ProductNotFoundException"
+        ):
             msg = self.response_error_message(response)
             raise FatalAPIError(msg)
 
