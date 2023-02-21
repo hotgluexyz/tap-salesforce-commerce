@@ -35,4 +35,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 # CLI declaration
-tap-salesforce = 'tap_salesforce.tap:TapSalesforce.cli'
+tap-salesforce-commerce = 'tap_salesforce.tap:TapSalesforce.cli'
