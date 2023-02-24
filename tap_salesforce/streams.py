@@ -18,7 +18,7 @@ class InventoryListsStream(SalesforceStream):
         th.Property("_type", th.StringType),
         th.Property("resource_state", th.StringType),
         th.Property("id", th.StringType),
-        th.Property("link", th.DateTimeType),
+        th.Property("link", th.StringType),
     ).to_dict()
 
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
