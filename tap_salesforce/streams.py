@@ -33,7 +33,7 @@ class ProductInventoryRecords(SalesforceStream):
 
     name = "product_inventory_records"
     path = "/inventory_lists/{inventory_id}/product_inventory_records"
-    primary_keys = ["id"]
+    primary_keys = ["product_id"]
     records_jsonpath = "$.data[*]"
     parent_stream_type = InventoryListsStream
     replication_key = None
