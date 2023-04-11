@@ -73,6 +73,10 @@ class SalesforceStream(RESTStream):
         if self.name == "products":
             #     #send expand params to get extra values
             params["expand"] = "prices"
+        if hasattr(self,"select"):
+            params["select"] = self.select
+        if hasattr(self,"expand"):
+            params["expand"] = self.expand
         return params
 
     def validate_response(self, response: requests.Response) -> None:

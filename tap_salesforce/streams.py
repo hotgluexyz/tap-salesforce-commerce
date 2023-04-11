@@ -59,18 +59,26 @@ class ProductsStream(SalesforceStream):
     path = "/products/{product_id}"
     primary_keys = ["id"]
     replication_key = None
+    select = "(**)"
+    expand = "all"
     parent_stream_type = ProductInventoryRecords
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
         th.Property("_resource_state", th.StringType),
+        th.Property("ats", th.NumberType),
         th.Property("creation_date", th.DateTimeType),
         th.Property("id", th.StringType),
+        th.Property("image", th.CustomType({"type": ["object", "string"]})),
+        th.Property("image_groups", th.CustomType({"type": ["array", "string"]})),
+        th.Property("in_stock", th.BooleanType),
         th.Property("last_modified", th.DateTimeType),
         th.Property("link", th.StringType),
         th.Property("long_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("master", th.CustomType({"type": ["object", "string"]})),
         th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online", th.BooleanType),
         th.Property(
             "online_flag",
             th.ObjectType(
@@ -82,7 +90,11 @@ class ProductsStream(SalesforceStream):
             "owning_catalog_name", th.CustomType({"type": ["object", "string"]})
         ),
         th.Property("page_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("page_keywords", th.CustomType({"type": ["object", "string"]})),
         th.Property("page_title", th.CustomType({"type": ["object", "string"]})),
+        th.Property("price", th.IntegerType),
+        th.Property("price_currency", th.StringType),
+        th.Property("price_per_unit", th.IntegerType),
         th.Property(
             "searchable",
             th.ObjectType(
@@ -100,14 +112,15 @@ class ProductsStream(SalesforceStream):
             ),
         ),
         th.Property("unit_quantity", th.IntegerType),
+        th.Property("variation_attributes", th.CustomType({"type": ["array", "string"]})),
+        th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
         th.Property("upc", th.StringType),
         th.Property("c_color", th.StringType),
         th.Property("c_refinementColor", th.StringType),
         th.Property("c_size", th.StringType),
         th.Property("c_width", th.StringType),
         th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
-        th.Property("price", th.IntegerType),
-        th.Property("price_per_unit", th.IntegerType),
+        
     ).to_dict()
 
 
@@ -141,4 +154,63 @@ class ProductsVariationAttributesStream(SalesforceStream):
         th.Property("c_refinementColor", th.StringType),
         th.Property("c_size", th.StringType),
         th.Property("c_width", th.StringType),
+    ).to_dict()
+
+class CatalogsStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "catalogs"
+    path = "/catalogs"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state" , th.StringType),
+        th.Property("id" , th.StringType),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online" , th.BooleanType),
+        th.Property("start_maintenance" , th.DateTimeType),
+        th.Property("end_maintenance" , th.DateTimeType),
+        th.Property("creation_date" , th.DateTimeType),
+        th.Property("is_master_catalog" , th.BooleanType),
+        th.Property("is_storefront_catalog" , th.BooleanType),
+        th.Property("root_category" , th.StringType),
+        th.Property("category_count" , th.NumberType),
+        th.Property("owned_product_count" , th.NumberType),
+        th.Property("assigned_product_count" , th.NumberType),
+        th.Property("recommendation_count" , th.NumberType),
+        th.Property("assigned_sites", th.CustomType({"type": ["array", "string"]})),
+        th.Property("link" , th.StringType),
+    ).to_dict()
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "catalog_id": record["id"],
+        }
+class CategoriesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "categories"
+    path = "/catalogs/{catalog_id}/categories"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = CatalogsStream
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state" , th.StringType),
+        th.Property("id" , th.StringType),
+        th.Property("catalog_id" , th.StringType),
+        th.Property("creation_date" , th.DateTimeType),
+        th.Property("last_modified" , th.DateTimeType),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online" , th.BooleanType),
+        th.Property("parent_category_id" , th.StringType),
+        th.Property("position" , th.NumberType),
     ).to_dict()
