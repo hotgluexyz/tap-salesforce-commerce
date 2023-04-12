@@ -11,6 +11,8 @@ from tap_salesforce.streams import (
     InventoryListsStream,
     ProductInventoryRecords,
     ProductsVariationAttributesStream,
+    CatalogsStream,
+    CategoriesStream,
 )
 
 # TODO: Compile a list of custom stream types here
@@ -20,6 +22,8 @@ STREAM_TYPES = [
     InventoryListsStream,
     ProductInventoryRecords,
     ProductsVariationAttributesStream,
+    CatalogsStream,
+    CategoriesStream,
 ]
 
 
