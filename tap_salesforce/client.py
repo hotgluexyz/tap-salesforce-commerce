@@ -22,7 +22,7 @@ class SalesforceStream(RESTStream):
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
-        domain = self.config["domain"]
+        domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
         if self.name in ["product_variations"]:
             url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"

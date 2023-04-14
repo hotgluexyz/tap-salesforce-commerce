@@ -36,14 +36,9 @@ class TapSalesforce(Tap):
 
     config_jsonschema = th.PropertiesList(
         th.Property(
-            "access_token",
-            th.StringType,
-        ),
-        th.Property(
             "start_date",
             th.DateTimeType,
         ),
-        th.Property("domain", th.StringType, required=True),
         th.Property("site_id", th.StringType, required=True),
         th.Property("client_id", th.StringType, required=True),
         th.Property("client_secret", th.StringType, required=True),
