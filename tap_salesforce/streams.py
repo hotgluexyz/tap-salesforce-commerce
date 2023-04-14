@@ -214,3 +214,61 @@ class CategoriesStream(SalesforceStream):
         th.Property("parent_category_id" , th.StringType),
         th.Property("position" , th.NumberType),
     ).to_dict()
+class SitesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "sites"
+    path = "/sites"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_v", th.StringType),
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state" , th.StringType),
+        th.Property("customer_list_link", th.CustomType({"type": ["object", "string"]})),
+        th.Property("description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("display_name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("id" , th.StringType),
+        th.Property("in_deletion" , th.BooleanType),
+        th.Property("in_deletion" , th.BooleanType),
+        th.Property("storefront_status" , th.StringType),
+    ).to_dict()
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "site_id": record["id"],
+        }
+class SiteLocalesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "site_locale_info"
+    path = "/sites/{site_id}/locale_info/locales"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.hits[*]"
+    select = "(**)"
+    include_all = True
+    parent_stream_type = SitesStream
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("active", th.BooleanType),
+        th.Property("country", th.StringType),
+        th.Property("default", th.BooleanType),
+        th.Property("display_country", th.StringType),
+        th.Property("display_language", th.StringType),
+        th.Property("display_name", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("iso3_country", th.StringType),
+        th.Property("iso3_language", th.StringType),
+        th.Property("language", th.StringType),
+        th.Property("name", th.StringType),
+        th.Property("site_id", th.StringType),
+    ).to_dict()
+    
+    def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
+        row.update({"site_id":context.get("site_id")})
+        return row
