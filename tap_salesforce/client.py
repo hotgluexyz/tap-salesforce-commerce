@@ -77,6 +77,8 @@ class SalesforceStream(RESTStream):
             params["select"] = self.select
         if hasattr(self,"expand"):
             params["expand"] = self.expand
+        if hasattr(self,"include_all"):
+            params["include_all"] = self.include_all
         return params
 
     def validate_response(self, response: requests.Response) -> None:

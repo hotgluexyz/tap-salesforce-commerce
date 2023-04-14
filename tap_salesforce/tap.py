@@ -13,10 +13,10 @@ from tap_salesforce.streams import (
     ProductsVariationAttributesStream,
     CatalogsStream,
     CategoriesStream,
+    SitesStream,
+    SiteLocalesStream,
 )
 
-# TODO: Compile a list of custom stream types here
-#       OR rewrite discover_streams() below with your custom logic.
 STREAM_TYPES = [
     ProductsStream,
     InventoryListsStream,
@@ -24,6 +24,8 @@ STREAM_TYPES = [
     ProductsVariationAttributesStream,
     CatalogsStream,
     CategoriesStream,
+    SitesStream,
+    SiteLocalesStream,
 ]
 
 
@@ -32,7 +34,6 @@ class TapSalesforce(Tap):
 
     name = "tap-salesforce"
 
-    # TODO: Update this section with the actual config values you expect:
     config_jsonschema = th.PropertiesList(
         th.Property(
             "access_token",
