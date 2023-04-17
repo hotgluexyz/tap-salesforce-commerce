@@ -121,6 +121,25 @@ class ProductsStream(SalesforceStream):
         th.Property("c_width", th.StringType),
         th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
         
+        th.Property("assigned_categories", th.CustomType({"type": ["object", "array"]})),
+        th.Property("brand", th.StringType),
+        th.Property("bundled_products", th.CustomType({"type": ["object", "array"]})),
+        th.Property("classification_category", th.CustomType({"type": ["object", "array"]})),
+        th.Property("ean", th.StringType),
+        th.Property("localized_tax_class_id", th.StringType),
+        th.Property("manufacturer_name", th.StringType),
+        th.Property("manufacturer_sku", th.StringType),
+        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
+        th.Property("primary_category_id", th.StringType),
+        th.Property("product_bundles", th.CustomType({"type": ["array", "string"]})),
+        th.Property("product_options", th.CustomType({"type": ["array", "string"]})),
+        th.Property("product_sets", th.CustomType({"type": ["array", "string"]})),
+        th.Property("set_products", th.CustomType({"type": ["array", "string"]})),
+        th.Property("valid_from", th.DateTimeType),
+        th.Property("valid_to", th.DateTimeType),
+        th.Property("variants", th.CustomType({"type": ["array", "string"]})),
+        th.Property("variation_groups", th.CustomType({"type": ["array", "string"]})),
+        
     ).to_dict()
 
 
