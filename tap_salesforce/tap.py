@@ -8,6 +8,7 @@ from singer_sdk import typing as th  # JSON schema typing helpers
 # TODO: Import your custom stream types here:
 from tap_salesforce.streams import (
     ProductsStream,
+    GlobalProductsStream,
     InventoryListsStream,
     ProductInventoryRecords,
     ProductsVariationAttributesStream,
@@ -19,6 +20,7 @@ from tap_salesforce.streams import (
 
 STREAM_TYPES = [
     ProductsStream,
+    GlobalProductsStream,
     InventoryListsStream,
     ProductInventoryRecords,
     ProductsVariationAttributesStream,
