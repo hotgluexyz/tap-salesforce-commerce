@@ -66,84 +66,51 @@ class ProductsStream(SalesforceStream):
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
-        th.Property("_resource_state", th.StringType),
-        th.Property("ats", th.NumberType),
-        th.Property("creation_date", th.DateTimeType),
+        th.Property("brand", th.StringType),
+        th.Property("currency", th.StringType),
+        th.Property("ean", th.StringType),
         th.Property("id", th.StringType),
-        th.Property("image", th.CustomType({"type": ["object", "string"]})),
         th.Property("image_groups", th.CustomType({"type": ["array", "string"]})),
-        th.Property("in_stock", th.BooleanType),
-        th.Property("last_modified", th.DateTimeType),
-        th.Property("link", th.StringType),
+        th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
         th.Property("long_description", th.CustomType({"type": ["object", "string"]})),
         th.Property("master", th.CustomType({"type": ["object", "string"]})),
+        th.Property("min_order_quantity", th.NumberType),
         th.Property("name", th.CustomType({"type": ["object", "string"]})),
-        th.Property("online", th.BooleanType),
-        th.Property(
-            "online_flag",
-            th.ObjectType(
-                th.Property("default", th.BooleanType),
-            ),
-        ),
-        th.Property("owning_catalog_id", th.StringType),
-        th.Property(
-            "owning_catalog_name", th.CustomType({"type": ["object", "string"]})
-        ),
+        th.Property("options", th.CustomType({"type": ["array", "string"]})),
         th.Property("page_description", th.CustomType({"type": ["object", "string"]})),
         th.Property("page_keywords", th.CustomType({"type": ["object", "string"]})),
         th.Property("page_title", th.CustomType({"type": ["object", "string"]})),
         th.Property("price", th.NumberType),
-        th.Property("price_currency", th.StringType),
         th.Property("price_per_unit", th.NumberType),
-        th.Property(
-            "searchable",
-            th.ObjectType(
-                th.Property("default", th.BooleanType),
-            ),
-        ),
+        th.Property("prices", th.CustomType({"type": ["object", "string"]})),
+        th.Property("primary_category_id", th.StringType),
+        th.Property("product_promotions", th.CustomType({"type": ["array", "string"]})),
         th.Property("short_description", th.CustomType({"type": ["object", "string"]})),
-        th.Property("tax_class_id", th.StringType),
+        th.Property("step_quantity", th.NumberType),
         th.Property(
             "type",
-            th.ObjectType(
-                th.Property("_type", th.StringType),
-                th.Property("part_of_product_set", th.BooleanType),
-                th.Property("variant", th.BooleanType),
-            ),
+           th.CustomType({"type": ["object", "string"]})
         ),
+        th.Property("unit_measure", th.StringType),
         th.Property("unit_quantity", th.IntegerType),
+        th.Property("upc", th.StringType),
+        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
+        th.Property("valid_to", th.CustomType({"type": ["object", "string"]})),
+        th.Property("variants", th.CustomType({"type": ["array", "string"]})),
         th.Property(
             "variation_attributes", th.CustomType({"type": ["array", "string"]})
         ),
         th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
-        th.Property("upc", th.StringType),
+
+
+        # TODO: Are these going to be dynamic custom fields? Maybe we need to implement dynamic discover here
         th.Property("c_color", th.StringType),
         th.Property("c_refinementColor", th.StringType),
         th.Property("c_size", th.StringType),
         th.Property("c_width", th.StringType),
-        th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
-        th.Property(
-            "assigned_categories", th.CustomType({"type": ["object", "array"]})
-        ),
-        th.Property("brand", th.StringType),
-        th.Property("bundled_products", th.CustomType({"type": ["object", "array"]})),
-        th.Property(
-            "classification_category", th.CustomType({"type": ["object", "array"]})
-        ),
-        th.Property("ean", th.StringType),
-        th.Property("localized_tax_class_id", th.StringType),
-        th.Property("manufacturer_name", th.StringType),
-        th.Property("manufacturer_sku", th.StringType),
-        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
-        th.Property("primary_category_id", th.StringType),
-        th.Property("product_bundles", th.CustomType({"type": ["array", "string"]})),
-        th.Property("product_options", th.CustomType({"type": ["array", "string"]})),
-        th.Property("product_sets", th.CustomType({"type": ["array", "string"]})),
-        th.Property("set_products", th.CustomType({"type": ["array", "string"]})),
-        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
-        th.Property("valid_to", th.DateTimeType),
-        th.Property("variants", th.CustomType({"type": ["array", "string"]})),
-        th.Property("variation_groups", th.CustomType({"type": ["array", "string"]})),
+        th.Property("c_styleNumber", th.StringType),
+        th.Property("c_tabDescription", th.StringType),
+        th.Property("c_tabDetails", th.StringType)
     ).to_dict()
 
 
@@ -162,7 +129,14 @@ class GlobalProductsStream(SalesforceStream):
         th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
         th.Property("_resource_state", th.StringType),
+        th.Property(
+            "assigned_categories", th.CustomType({"type": ["object", "array"]})
+        ),
         th.Property("ats", th.NumberType),
+        th.Property("brand", th.StringType),
+        th.Property(
+            "classification_category", th.CustomType({"type": ["object", "array"]})
+        ),
         th.Property("creation_date", th.DateTimeType),
         th.Property("id", th.StringType),
         th.Property("image", th.CustomType({"type": ["object", "string"]})),
@@ -187,9 +161,9 @@ class GlobalProductsStream(SalesforceStream):
         th.Property("page_description", th.CustomType({"type": ["object", "string"]})),
         th.Property("page_keywords", th.CustomType({"type": ["object", "string"]})),
         th.Property("page_title", th.CustomType({"type": ["object", "string"]})),
-        th.Property("price", th.IntegerType),
-        th.Property("price_currency", th.StringType),
-        th.Property("price_per_unit", th.IntegerType),
+        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
+        th.Property("primary_category_id", th.StringType),
+        th.Property("product_options", th.CustomType({"type": ["array", "string"]})),
         th.Property(
             "searchable",
             th.ObjectType(
@@ -200,45 +174,24 @@ class GlobalProductsStream(SalesforceStream):
         th.Property("tax_class_id", th.StringType),
         th.Property(
             "type",
-            th.ObjectType(
-                th.Property("_type", th.StringType),
-                th.Property("part_of_product_set", th.BooleanType),
-                th.Property("variant", th.BooleanType),
-            ),
+           th.CustomType({"type": ["object", "string"]})
         ),
         th.Property("unit_quantity", th.IntegerType),
+        th.Property("upc", th.StringType),
+        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
+        th.Property("valid_to", th.CustomType({"type": ["object", "string"]})),
         th.Property(
             "variation_attributes", th.CustomType({"type": ["array", "string"]})
         ),
         th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
-        th.Property("upc", th.StringType),
+
+        # TODO: Custom fields
         th.Property("c_color", th.StringType),
         th.Property("c_refinementColor", th.StringType),
         th.Property("c_size", th.StringType),
         th.Property("c_width", th.StringType),
-        th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
-        th.Property(
-            "assigned_categories", th.CustomType({"type": ["object", "array"]})
-        ),
-        th.Property("brand", th.StringType),
-        th.Property("bundled_products", th.CustomType({"type": ["object", "array"]})),
-        th.Property(
-            "classification_category", th.CustomType({"type": ["object", "array"]})
-        ),
-        th.Property("ean", th.StringType),
-        th.Property("localized_tax_class_id", th.StringType),
-        th.Property("manufacturer_name", th.StringType),
-        th.Property("manufacturer_sku", th.StringType),
-        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
-        th.Property("primary_category_id", th.StringType),
-        th.Property("product_bundles", th.CustomType({"type": ["array", "string"]})),
-        th.Property("product_options", th.CustomType({"type": ["array", "string"]})),
-        th.Property("product_sets", th.CustomType({"type": ["array", "string"]})),
-        th.Property("set_products", th.CustomType({"type": ["array", "string"]})),
-        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
-        th.Property("valid_to", th.DateTimeType),
-        th.Property("variants", th.CustomType({"type": ["array", "string"]})),
-        th.Property("variation_groups", th.CustomType({"type": ["array", "string"]})),
+        th.Property("c_tabDescription", th.CustomType({"type": ["object", "string"]})),
+        th.Property("c_tabDetails", th.CustomType({"type": ["object", "string"]}))
     ).to_dict()
 
 
