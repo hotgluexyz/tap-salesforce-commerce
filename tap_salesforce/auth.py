@@ -27,7 +27,7 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
         token_response = requests.post(
             self.auth_endpoint,
             data=auth_request_payload,
-            auth=(self.config["client_id"], self.config["client_secret"]),
+            auth=(self.config["username"], self.config["password"]),
         )
         try:
             token_response.raise_for_status()
