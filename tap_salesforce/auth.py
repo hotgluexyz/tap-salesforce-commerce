@@ -17,31 +17,10 @@ import base64
 class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
     """Authenticator class for TapDynamicsFinance."""
 
-    def __init__(
-        self,
-        stream: RESTStreamBase,
-        auth_endpoint: Optional[str] = None,
-        oauth_scopes: Optional[str] = None,
-        default_expiration: Optional[int] = None,
-        config_file: Optional[str] = None,
-    ) -> None:
-        super().__init__(stream=stream)
-        self._auth_endpoint = f"https://{self.config.get('sf_domain', self.config.get('domain'))}.dx.commercecloud.salesforce.com/dw/oauth2/access_token"
-        self._default_expiration = default_expiration
-        self._oauth_scopes = oauth_scopes
-        self._config_file = config_file
-        self._tap = stream._tap
-
-        # Initialize internal tracking attributes
-        self.access_token: Optional[str] = None
-        self.refresh_token: Optional[str] = None
-        self.last_refreshed: Optional[datetime] = None
-        self.expires_in: Optional[int] = None
-
     @property
     def oauth_request_body(self) -> dict:
         """Define the OAuth request body for the TapDynamicsFinance API."""
-        return {"grant_type": "urn:demandware:params:oauth:grant-type:client-id:dwsid:dwsecuretoken"}
+        return {"grant_type": "client_credentials"}
 
     # Authentication and refresh
     def update_access_token(self) -> None:
@@ -52,18 +31,11 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
         """
         request_time = utc_now()
         auth_request_payload = self.oauth_request_payload
-        client_id = self.config.get("client_id")
-        auth_str = f"{self.config['username']}:{self.config['password']}:{self.config['client_secret']}"
-        auth_header = base64.b64encode(auth_str.encode("ascii")).decode("ascii")
 
-        auth_credentials = {
-            "Authorization": f"Basic {auth_header}"
-        }
         token_response = requests.post(
             self.auth_endpoint,
             data=auth_request_payload,
-            headers= auth_credentials,
-            params= {"client_id": client_id},
+            auth=(self.config["client_id"], self.config["client_secret"]),
         )
         try:
             token_response.raise_for_status()
@@ -87,4 +59,5 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
     def create_for_stream(cls, stream) -> "SalesForceAuth":
         return cls(
             stream=stream,
+            auth_endpoint="https://account.demandware.com/dw/oauth2/access_token",
         )
