@@ -26,7 +26,7 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
         config_file: Optional[str] = None,
     ) -> None:
         super().__init__(stream=stream)
-        self._auth_endpoint = f"https://{self.config.get('domain')}.dx.commercecloud.salesforce.com/dw/oauth2/access_token"
+        self._auth_endpoint = f"https://{self.config.get('sf_domain', self.config.get('domain'))}.dx.commercecloud.salesforce.com/dw/oauth2/access_token"
         self._default_expiration = default_expiration
         self._oauth_scopes = oauth_scopes
         self._config_file = config_file
