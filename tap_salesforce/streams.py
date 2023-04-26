@@ -129,9 +129,13 @@ class GlobalProductsStream(SalesforceStream):
         th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
         th.Property("_resource_state", th.StringType),
-        th.Property(
-            "assigned_categories", th.CustomType({"type": ["object", "array"]})
-        ),
+        th.Property("assigned_categories", th.ArrayType(
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("catalog_id", th.StringType),
+                th.Property("category_id", th.StringType),
+            )
+        )),
         th.Property("ats", th.NumberType),
         th.Property("brand", th.StringType),
         th.Property(
@@ -227,6 +231,45 @@ class ProductsVariationAttributesStream(SalesforceStream):
         th.Property("c_width", th.StringType),
     ).to_dict()
 
+class ProductsPricesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "prices"
+    path = "/products/{product_id}/prices"
+    primary_keys = ["id"]
+    parent_stream_type = ProductInventoryRecords
+    replication_key = None
+    records_jsonpath = "$.[*]"
+
+    schema = th.PropertiesList(
+        th.Property("_v", th.StringType),
+        th.Property("_type", th.StringType),
+        th.Property("brand", th.StringType),
+        th.Property("currency", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("long_description", th.StringType),
+        th.Property("min_order_quantity", th.NumberType),
+        th.Property("name", th.StringType),
+        th.Property("page_description", th.StringType),
+        th.Property("page_keywords", th.StringType),
+        th.Property("page_title", th.StringType),
+        th.Property("price", th.NumberType),
+        th.Property("price_max", th.NumberType),
+        th.Property("price_per_unit", th.NumberType),
+        th.Property("price_per_unit_max", th.NumberType),
+        th.Property("primary_category_id", th.StringType),
+        th.Property("short_description", th.StringType),
+        th.Property("step_quantity", th.NumberType),
+        th.Property("type", th.ObjectType(
+            th.Property("master", th.BooleanType)
+        )),
+        th.Property("unit_measure", th.StringType),
+        th.Property("unit_quantity", th.NumberType),
+        th.Property("c_displaySize", th.StringType),
+        th.Property("c_resolution", th.StringType),
+        th.Property("c_tabDescription", th.StringType),
+        th.Property("c_tabDetails", th.StringType),
+    ).to_dict()
 
 class CatalogsStream(SalesforceStream):
     """Define custom stream."""
@@ -276,18 +319,38 @@ class CategoriesStream(SalesforceStream):
     records_jsonpath = "$.data[*]"
     parent_stream_type = CatalogsStream
     select = "(**)"
+    expand = "vm"
 
     schema = th.PropertiesList(
+        th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
-        th.Property("_resource_state", th.StringType),
-        th.Property("id", th.StringType),
-        th.Property("catalog_id", th.StringType),
+        th.Property("categories", th.ArrayType(
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("creation_date", th.StringType),
+                th.Property("description", th.CustomType({"type": ["object", "string"]})),
+                th.Property("id", th.StringType),
+                th.Property("image", th.StringType),
+                th.Property("link", th.StringType),
+                th.Property("name", th.CustomType({"type": ["object", "string"]})),
+                th.Property("online", th.BooleanType),
+                th.Property("parent_category_id", th.StringType),
+                th.Property("paths", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+                th.Property("position", th.NumberType),
+                th.Property("thumbnail", th.StringType),
+            )
+        )),
         th.Property("creation_date", th.DateTimeType),
-        th.Property("last_modified", th.DateTimeType),
+        th.Property("description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("id", th.StringType),
+        th.Property("image", th.StringType),
+        th.Property("link", th.StringType),
         th.Property("name", th.CustomType({"type": ["object", "string"]})),
         th.Property("online", th.BooleanType),
-        th.Property("parent_category_id", th.StringType),
+        th.Property("paths", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
         th.Property("position", th.NumberType),
+        th.Property("sorting_rules", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("thumbnail", th.StringType),
     ).to_dict()
 
 

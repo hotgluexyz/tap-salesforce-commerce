@@ -16,6 +16,7 @@ from tap_salesforce.streams import (
     CategoriesStream,
     SitesStream,
     SiteLocalesStream,
+    ProductsPricesStream
 )
 
 STREAM_TYPES = [
@@ -28,6 +29,7 @@ STREAM_TYPES = [
     CategoriesStream,
     SitesStream,
     SiteLocalesStream,
+    ProductsPricesStream
 ]
 
 
@@ -44,6 +46,8 @@ class TapSalesforce(Tap):
         th.Property("site_id", th.StringType, required=True),
         th.Property("client_id", th.StringType, required=True),
         th.Property("client_secret", th.StringType, required=True),
+        th.Property("username", th.StringType, required=True),
+        th.Property("password", th.StringType, required=True),
     ).to_dict()
 
     def discover_streams(self) -> List[Stream]:
