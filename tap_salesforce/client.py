@@ -24,7 +24,7 @@ class SalesforceStream(RESTStream):
         """Return the API URL root, configurable via tap settings."""
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
-        if self.name in ["products", "product_variations", "prices"]:
+        if self.name in ["products", "product_variations", "prices", "orders"]:
             url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
