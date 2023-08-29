@@ -22,13 +22,14 @@ class SalesforceStream(RESTStream):
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
+        full_domain = self.config.get("full_domain")
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
         if self.name in ["products", "product_variations", "prices"]:
-            url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
+            url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
-            url_base = f"https://{domain}.dx.commercecloud.salesforce.com/s/-/dw/data/{self.api_version}"
+            url_base = f"{full_domain}/s/-/dw/data/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/-/dw/data/{self.api_version}"
         return url_base
 
     records_jsonpath = "$[*]"
