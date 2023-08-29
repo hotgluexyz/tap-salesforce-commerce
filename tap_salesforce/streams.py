@@ -1,8 +1,9 @@
 """Stream type classes for tap-salesforce."""
 
 from singer_sdk import typing as th
-from typing import Optional
+from typing import Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
+import requests
 
 
 class InventoryListsStream(SalesforceStream):
@@ -417,3 +418,137 @@ class SiteLocalesStream(SalesforceStream):
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         row.update({"site_id": context.get("site_id")})
         return row
+
+class OrdersStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "orders"
+    path = "/orders/"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$."
+    select = "(**)"
+
+    @property
+    def order_ids(self):
+        return self.config.get("4gift_orders")
+
+    schema = th.PropertiesList(
+        th.Property("_v", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("_type", th.StringType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("customer_info", th.CustomType({"type": ["object", "string"]})),
+        th.Property("currency", th.StringType),
+        th.Property("order_no", th.StringType),
+        th.Property("order_price_adjustments", th.ArrayType(
+            th.ObjectType(
+                th.Property("promotion_id", th.StringType),
+                th.Property("promotion_link", th.StringType),
+                th.Property("item_text", th.StringType),
+                th.Property("price", th.NumberType),
+            )
+        )),
+        th.Property("order_token", th.StringType),
+        th.Property("order_total", th.StringType),
+        th.Property("payment_instruments", th.ArrayType(
+            th.ObjectType(
+                th.Property("payment_instrument_id", th.StringType),
+                th.Property("payment_method_id", th.StringType),
+                th.Property("payment_card", th.CustomType({"type": ["object", "string"]})),
+                th.Property("amount", th.StringType),
+            )
+        )),
+        th.Property("product_items", th.ArrayType(
+            th.ObjectType(
+                th.Property("product_id", th.StringType),
+                th.Property("item_text", th.StringType),
+                th.Property("quantity", th.NumberType),
+                th.Property("product_name", th.StringType),
+                th.Property("base_price", th.StringType),
+                th.Property("price", th.StringType),
+                th.Property("price_adjustments", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+            )
+        )),
+        th.Property("product_sub_total", th.NumberType),
+        th.Property("product_total", th.NumberType),
+        th.Property("shipping_total", th.NumberType),
+        th.Property("shipments", th.ArrayType(
+            th.ObjectType(
+                th.Property("id", th.StringType),
+                th.Property("shipping_address", th.ObjectType(
+                    th.Property("salutation", th.StringType),
+                    th.Property("title", th.StringType),
+                    th.Property("company_name", th.StringType),
+                    th.Property("first_name", th.StringType),
+                    th.Property("second_name", th.StringType),
+                    th.Property("last_name", th.StringType),
+                    th.Property("postal_code", th.StringType),
+                    th.Property("address1", th.StringType),
+                    th.Property("address2", th.StringType),
+                    th.Property("city", th.StringType),
+                    th.Property("post_box", th.StringType),
+                    th.Property("country_code", th.StringType),
+                    th.Property("state_code", th.StringType),
+                    th.Property("phone", th.StringType),
+                    th.Property("suffix", th.StringType),
+                )),
+                th.Property("shipping_method", th.ObjectType(
+                    th.Property("id", th.StringType),
+                    th.Property("name", th.StringType),
+                    th.Property("description", th.StringType),
+                )),
+            ),
+        )),
+        th.Property("status", th.DateTimeType),
+        th.Property("tax_total", th.CustomType({"type": ["object", "string"]})),
+    ).to_dict()
+
+    def get_next_page_token(
+        self, response: requests.Response, previous_token: Optional[Any]
+    ) -> Optional[Any]:
+        order_ids = self.order_ids
+        ids_len = len(order_ids)
+        previous_token = previous_token or 0
+        if ids_len > 0 and previous_token < ids_len - 1:
+            next_page_token = previous_token + 1
+            return next_page_token
+        else:
+            return None
+
+    def get_url_params(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Dict[str, Any]:
+        params=""
+        if self.order_ids:
+            index = next_page_token or 0
+            params =  self.order_ids[index]
+        return params
+    
+    def prepare_request(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> requests.PreparedRequest:
+        
+        http_method = self.rest_method
+        params: str = self.get_url_params(context, next_page_token)
+        url: str = self.get_url(context) + params
+        request_data = self.prepare_request_payload(context, next_page_token)
+        headers = self.http_headers
+
+        authenticator = self.authenticator
+        if authenticator:
+            headers.update(authenticator.auth_headers or {})
+
+        request = cast(
+            requests.PreparedRequest,
+            self.requests_session.prepare_request(
+                requests.Request(
+                    method=http_method,
+                    url=url,
+                    headers=headers,
+                    json=request_data,
+                ),
+            ),
+        )
+        return request
+

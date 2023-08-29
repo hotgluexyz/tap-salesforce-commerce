@@ -25,8 +25,9 @@ class SalesforceStream(RESTStream):
         full_domain = self.config.get("full_domain")
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
-        if self.name in ["products", "product_variations", "prices"]:
-            url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
+
+        if self.name in ["products", "product_variations", "prices", "orders"]:
+             url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
             url_base = f"{full_domain}/s/-/dw/data/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/-/dw/data/{self.api_version}"
