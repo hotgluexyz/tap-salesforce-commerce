@@ -1,9 +1,10 @@
 """Stream type classes for tap-salesforce."""
 
 from singer_sdk import typing as th
-from typing import Optional, cast, Dict, Any
+from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
+from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 
 
 class InventoryListsStream(SalesforceStream):
@@ -63,6 +64,8 @@ class ProductsStream(SalesforceStream):
     select = "(**)"
     expand = "availability,bundled_products,links,promotions,options,images,prices,variations,set_products,recommendations"
     parent_stream_type = ProductInventoryRecords
+    currencies = ["USD", "EUR", "GBP"]
+    first_currency = "USD"
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
@@ -113,6 +116,54 @@ class ProductsStream(SalesforceStream):
         th.Property("c_tabDescription", th.StringType),
         th.Property("c_tabDetails", th.StringType)
     ).to_dict()
+
+    def get_next_page_token(
+        self, response: requests.Response, previous_token: Optional[Any]
+    ) -> Optional[Any]:
+        # using to iterate through currencies to get all available prices
+        previous_token = previous_token or 0
+        if previous_token < len(self.currencies) - 1:
+            self.first_currency = None
+            next_page_token = previous_token + 1
+            return next_page_token
+        
+        #initialize first curency for next product
+        self.first_currency = "USD"
+        return None
+
+    def get_url_params(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Dict[str, Any]:
+        """Return a dictionary of values to be used in URL parameterization."""
+        params = super().get_url_params(context, next_page_token)
+        if self.first_currency:
+            params["currency"] = self.first_currency
+        elif next_page_token:
+            params["currency"] = self.currencies[next_page_token]
+        return params
+    
+    def parse_response(self, response: requests.Response):
+        if response.status_code not in [400]:
+            return super().parse_response(response)
+        return []
+    
+    def validate_response(self, response: requests.Response) -> None:
+        if response.status_code == 400:
+            res_json = response.json()
+            if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
+                pass
+        elif (
+            response.status_code in self.extra_retry_statuses
+            or 500 <= response.status_code < 600
+        ):
+            msg = self.response_error_message(response)
+            raise RetriableAPIError(msg, response)
+        elif (
+            400 <= response.status_code < 500
+            and response.json()["fault"]["type"] != "ProductNotFoundException"
+        ):
+            msg = self.response_error_message(response)
+            raise FatalAPIError(msg)
 
 
 class GlobalProductsStream(SalesforceStream):
