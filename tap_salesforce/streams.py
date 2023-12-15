@@ -5,6 +5,7 @@ from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from singer_sdk.helpers.jsonpath import extract_jsonpath
 
 
 class InventoryListsStream(SalesforceStream):
@@ -47,11 +48,14 @@ class ProductInventoryRecords(SalesforceStream):
         th.Property("link", th.StringType),
     ).to_dict()
 
-    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
-        """Return a context dictionary for child streams."""
-        return {
-            "product_id": record["product_id"],
-        }
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        # add product_ids to a global env to use them in products/{product_id}
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        # parse_response as usual
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
 
 class CatalogsStream(SalesforceStream):
     """Define custom stream."""
@@ -147,10 +151,11 @@ class ProductSearchStream(SalesforceStream):
 
     name = "products_search"
     path = "/product_search"
-    primary_keys = ["id"]
+    primary_keys = ["product_id"]
     replication_key = None
     records_jsonpath = "$.hits[*]"
     parent_stream_type = CatalogsByIdStream
+    params = {"count": 200}
     
     @property
     def params(self):
@@ -175,10 +180,38 @@ class ProductSearchStream(SalesforceStream):
         th.Property("c_position", th.NumberType),
     ).to_dict()
 
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        # add product_ids to a global env to use them in products/{product_id}
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("hits", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        # parse_response as usual
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
+
+class AllProductsIdsStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "products_ids"
+    path = "/"
+    primary_keys = ["product_id"]
+
+    schema = th.PropertiesList(
+        th.Property("product_id", th.StringType),
+    ).to_dict()
+
+    def _request(
+        self, prepared_request: requests.PreparedRequest, context: Optional[dict]
+    ) -> requests.Response:
+        return SalesforceStream.product_ids
+    
+    def parse_response(self, response):
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         """Return a context dictionary for child streams."""
         return {
-            "product_id": record["product_id"],
+            "product_id": record["product_id"]
         }
 
 class ProductsStream(SalesforceStream):
@@ -190,7 +223,7 @@ class ProductsStream(SalesforceStream):
     replication_key = None
     select = "(**)"
     expand = "availability,bundled_products,links,promotions,options,images,prices,variations,set_products,recommendations"
-    parent_stream_type = ProductSearchStream
+    parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
 

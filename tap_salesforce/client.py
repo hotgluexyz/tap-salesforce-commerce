@@ -19,6 +19,7 @@ class SalesforceStream(RESTStream):
     expires_in = None
     last_refreshed = None
     params = {}
+    product_ids = []
 
     @property
     def url_base(self) -> str:

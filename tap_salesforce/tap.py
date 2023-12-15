@@ -19,7 +19,8 @@ from tap_salesforce.streams import (
     ProductsPricesStream,
     OrdersStream,
     CatalogsByIdStream,
-    ProductSearchStream
+    ProductSearchStream,
+    AllProductsIdsStream
 )
 
 STREAM_TYPES = [
@@ -35,7 +36,8 @@ STREAM_TYPES = [
     ProductsPricesStream,
     OrdersStream,
     CatalogsByIdStream,
-    ProductSearchStream
+    ProductSearchStream,
+    AllProductsIdsStream
 ]
 
 
