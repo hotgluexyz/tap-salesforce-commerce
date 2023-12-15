@@ -71,7 +71,7 @@ class SalesforceStream(RESTStream):
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization."""
-        params = self.params
+        params = {}
         if next_page_token:
             params["start"] = next_page_token
         if self.name == "products":
@@ -83,9 +83,11 @@ class SalesforceStream(RESTStream):
             params["expand"] = self.expand
         if hasattr(self,"include_all"):
             params["include_all"] = self.include_all
-        if context:
-            if context.get("root_category"):
-                params["refine"] = f"cgid={context.get('root_category')}"
+        if hasattr(self,"count"):
+            params["count"] = self.count
+        if self.name == "products_search":
+            params["refine"] = f"cgid={context.get('root_category')}"
+            params["client_id"] = self.config.get("client_id")
         return params
 
     def validate_response(self, response: requests.Response) -> None:
