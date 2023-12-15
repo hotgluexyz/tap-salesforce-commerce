@@ -18,6 +18,8 @@ class SalesforceStream(RESTStream):
     access_token = None
     expires_in = None
     last_refreshed = None
+    params = {}
+    product_ids = []
 
     @property
     def url_base(self) -> str:
@@ -26,7 +28,7 @@ class SalesforceStream(RESTStream):
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
 
-        if self.name in ["products", "product_variations", "prices", "orders"]:
+        if self.name in ["products", "product_variations", "prices", "orders", "products_search"]:
              url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
@@ -69,11 +71,11 @@ class SalesforceStream(RESTStream):
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization."""
-        params: dict = {}
+        params = self.params
         if next_page_token:
             params["start"] = next_page_token
         if self.name == "products":
-            #     #send expand params to get extra values
+            #send expand params to get extra values
             params["expand"] = "prices"
         if hasattr(self,"select"):
             params["select"] = self.select
@@ -81,6 +83,9 @@ class SalesforceStream(RESTStream):
             params["expand"] = self.expand
         if hasattr(self,"include_all"):
             params["include_all"] = self.include_all
+        if context:
+            if context.get("root_category"):
+                params["refine"] = f"cgid={context.get('root_category')}"
         return params
 
     def validate_response(self, response: requests.Response) -> None:
