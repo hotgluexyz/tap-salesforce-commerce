@@ -5,6 +5,7 @@ from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from singer_sdk.helpers.jsonpath import extract_jsonpath
 
 
 class InventoryListsStream(SalesforceStream):
@@ -47,12 +48,171 @@ class ProductInventoryRecords(SalesforceStream):
         th.Property("link", th.StringType),
     ).to_dict()
 
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        # add product_ids to a global env to use them in products/{product_id}
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        # parse_response as usual
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
+
+class CatalogsStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "catalogs"
+    path = "/catalogs"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online", th.BooleanType),
+        th.Property("start_maintenance", th.DateTimeType),
+        th.Property("end_maintenance", th.DateTimeType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("is_master_catalog", th.BooleanType),
+        th.Property("is_storefront_catalog", th.BooleanType),
+        th.Property("root_category", th.StringType),
+        th.Property("category_count", th.NumberType),
+        th.Property("owned_product_count", th.NumberType),
+        th.Property("assigned_product_count", th.NumberType),
+        th.Property("recommendation_count", th.NumberType),
+        th.Property("assigned_sites", th.CustomType({"type": ["array", "string"]})),
+        th.Property("link", th.StringType),
+    ).to_dict()
+
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         """Return a context dictionary for child streams."""
         return {
-            "product_id": record["product_id"],
+            "catalog_id": record["id"],
+        }
+    
+class CatalogsByIdStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "catalogs_by_id"
+    path = "/catalogs/{catalog_id}"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$"
+    parent_stream_type = CatalogsStream
+
+    schema = th.PropertiesList(
+        th.Property("_v", th.StringType),
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("assigned_sites",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("cartridges", th.StringType),
+                    th.Property("creation_date", th.DateTimeType),
+                    th.Property("customer_list_link", th.ObjectType(					
+                        th.Property("_type", th.StringType),
+                        th.Property("customer_list_id", th.StringType),
+                        th.Property("link", th.StringType),
+                    )),
+                    th.Property("display_name",th.ObjectType(					
+                        th.Property("default", th.StringType),
+                    )),
+                    th.Property("id", th.StringType),
+                    th.Property("in_deletion", th.BooleanType),
+                    th.Property("last_modified", th.DateTimeType),
+                    th.Property("link", th.StringType),
+                    th.Property("storefront_status", th.StringType),
+        ))),
+        th.Property("category_count", th.NumberType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("id", th.StringType),
+        th.Property("last_modified", th.DateTimeType),
+        th.Property("link", th.StringType),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online", th.BooleanType),
+        th.Property("recommendation_count", th.NumberType),
+        th.Property("root_category", th.StringType),
+        th.Property("c_cdc-personalization-lead-time", th.StringType),
+    ).to_dict()
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "root_category": record["root_category"],
+        }
+    
+class ProductSearchStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "products_search"
+    path = "/product_search"
+    primary_keys = ["product_id"]
+    replication_key = None
+    records_jsonpath = "$.hits[*]"
+    parent_stream_type = CatalogsByIdStream
+    params = {"count": 200}
+    
+    @property
+    def params(self):
+        return {
+            "client_id": self.config.get("client_id"),
         }
 
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("hit_type", th.StringType),
+        th.Property("link", th.StringType),
+        th.Property("product_id", th.StringType),
+        th.Property("product_type" ,th.ObjectType(					
+            th.Property("_type", th.StringType),
+            th.Property("master", th.BooleanType),
+        )),
+        th.Property("represented_product",th.ObjectType(					
+            th.Property("_type", th.StringType),
+            th.Property("id", th.StringType),
+            th.Property("link", th.StringType),
+        )),
+        th.Property("c_position", th.NumberType),
+    ).to_dict()
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        # add product_ids to a global env to use them in products/{product_id}
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("hits", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        # parse_response as usual
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
+
+class AllProductsIdsStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "products_ids"
+    path = "/"
+    primary_keys = ["product_id"]
+
+    schema = th.PropertiesList(
+        th.Property("product_id", th.StringType),
+    ).to_dict()
+
+    def _request(
+        self, prepared_request: requests.PreparedRequest, context: Optional[dict]
+    ) -> requests.Response:
+        return SalesforceStream.product_ids
+    
+    def parse_response(self, response):
+        yield from extract_jsonpath(self.records_jsonpath, input=response)
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "product_id": record["product_id"]
+        }
 
 class ProductsStream(SalesforceStream):
     """Define custom stream."""
@@ -63,7 +223,7 @@ class ProductsStream(SalesforceStream):
     replication_key = None
     select = "(**)"
     expand = "availability,bundled_products,links,promotions,options,images,prices,variations,set_products,recommendations"
-    parent_stream_type = ProductInventoryRecords
+    parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
 
@@ -322,44 +482,6 @@ class ProductsPricesStream(SalesforceStream):
         th.Property("c_tabDescription", th.StringType),
         th.Property("c_tabDetails", th.StringType),
     ).to_dict()
-
-class CatalogsStream(SalesforceStream):
-    """Define custom stream."""
-
-    name = "catalogs"
-    path = "/catalogs"
-    primary_keys = ["id"]
-    replication_key = None
-    records_jsonpath = "$.data[*]"
-    select = "(**)"
-
-    schema = th.PropertiesList(
-        th.Property("_type", th.StringType),
-        th.Property("_resource_state", th.StringType),
-        th.Property("id", th.StringType),
-        th.Property("name", th.CustomType({"type": ["object", "string"]})),
-        th.Property("description", th.CustomType({"type": ["object", "string"]})),
-        th.Property("online", th.BooleanType),
-        th.Property("start_maintenance", th.DateTimeType),
-        th.Property("end_maintenance", th.DateTimeType),
-        th.Property("creation_date", th.DateTimeType),
-        th.Property("is_master_catalog", th.BooleanType),
-        th.Property("is_storefront_catalog", th.BooleanType),
-        th.Property("root_category", th.StringType),
-        th.Property("category_count", th.NumberType),
-        th.Property("owned_product_count", th.NumberType),
-        th.Property("assigned_product_count", th.NumberType),
-        th.Property("recommendation_count", th.NumberType),
-        th.Property("assigned_sites", th.CustomType({"type": ["array", "string"]})),
-        th.Property("link", th.StringType),
-    ).to_dict()
-
-    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
-        """Return a context dictionary for child streams."""
-        return {
-            "catalog_id": record["id"],
-        }
-
 
 class CategoriesStream(SalesforceStream):
     """Define custom stream."""
