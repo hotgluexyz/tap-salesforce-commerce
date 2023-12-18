@@ -155,13 +155,7 @@ class ProductSearchStream(SalesforceStream):
     replication_key = None
     records_jsonpath = "$.hits[*]"
     parent_stream_type = CatalogsByIdStream
-    params = {"count": 200}
-    
-    @property
-    def params(self):
-        return {
-            "client_id": self.config.get("client_id"),
-        }
+    count = 200
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
@@ -213,6 +207,11 @@ class AllProductsIdsStream(SalesforceStream):
         return {
             "product_id": record["product_id"]
         }
+    
+    def get_next_page_token(
+        self, response: requests.Response, previous_token: Optional[Any]
+    ) -> Optional[Any]:
+        return None
 
 class ProductsStream(SalesforceStream):
     """Define custom stream."""
@@ -226,6 +225,7 @@ class ProductsStream(SalesforceStream):
     parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
+
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
