@@ -5,6 +5,7 @@ from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from datetime import datetime
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 
 
@@ -538,6 +539,8 @@ class SitesStream(SalesforceStream):
     records_jsonpath = "$.data[*]"
     select = "(**)"
 
+    #pending to get customers from customer link
+
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
@@ -596,7 +599,7 @@ class OrdersStream(SalesforceStream):
     """Define custom stream."""
 
     name = "orders"
-    path = "/orders/"
+    path = "/orders"
     primary_keys = ["id"]
     replication_key = None
     records_jsonpath = "$."
@@ -704,7 +707,10 @@ class OrdersStream(SalesforceStream):
         
         http_method = self.rest_method
         params: str = self.get_url_params(context, next_page_token)
-        url: str = self.get_url(context) + params
+        url: str = self.get_url(context)
+        if params:
+            url = f"{url}/{params}"
+
         request_data = self.prepare_request_payload(context, next_page_token)
         headers = self.http_headers
 
@@ -724,4 +730,282 @@ class OrdersStream(SalesforceStream):
             ),
         )
         return request
+
+
+class CustomerGroupsStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "customer_groups"
+    path = "/sites/{site_id}/customer_groups"
+    primary_keys = ["id"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = SitesStream
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("link", th.StringType),
+        th.Property("site_id", th.StringType),
+    ).to_dict()
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "site_id": context["site_id"],
+            "customer_group_id": record["id"]
+        }
+    
+
+class CustomersStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "customers"
+    path = "/sites/{site_id}/customer_groups/{customer_group_id}/members"
+    primary_keys = ["customer_no"]
+    replication_key = None
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = CustomerGroupsStream
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("customer_no", th.StringType),
+        th.Property("login", th.StringType),
+        th.Property("first_name", th.StringType),
+        th.Property("last_name", th.StringType),
+        th.Property("active", th.BooleanType),
+        th.Property("link", th.StringType),
+        th.Property("site_id", th.StringType),
+        th.Property("customer_group_id", th.StringType),
+        th.Property("customer_link", th.StringType),
+    ).to_dict()
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        if response.status_code == 200:
+            return super().parse_response(response)
+        return []
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        # pending to see if customer list is the same as site
+        customer_link = record.get("customer_link")
+        list_id = None
+        if customer_link:
+            list_id = customer_link.split(f"customer_lists/")[-1].split("/")[0]
+        return {
+            "customer_no": record["customer_no"],
+            "list_id": list_id
+        }
+    
+class CustomerAddressesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "customer_addresses"
+    path = "/customer_lists/{list_id}/customers/{customer_no}/addresses"
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = CustomersStream
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("address1", th.StringType),
+        th.Property("address_id", th.StringType),
+        th.Property("city", th.StringType),
+        th.Property("company_name", th.StringType),
+        th.Property("country_code", th.StringType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("etag", th.StringType),
+        th.Property("first_name", th.StringType),
+        th.Property("full_name", th.StringType),
+        th.Property("last_modified", th.DateTimeType),
+        th.Property("last_name", th.StringType),
+        th.Property("phone", th.StringType),
+        th.Property("postal_code", th.StringType),
+        th.Property("salutation", th.StringType),
+        th.Property("state_code", th.StringType),
+        th.Property("customer_no", th.StringType),
+    ).to_dict()
+
+
+class AllOrdersStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "all_orders"
+    path = "/order_search"
+    replication_key = "last_modified"
+    records_jsonpath = "$.hits[*].data"
+    rest_method = "POST"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("adjusted_merchandize_total_tax", th.NumberType),
+        th.Property("adjusted_shipping_total_tax", th.NumberType),
+        th.Property(
+            "billing_address",
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("address1", th.StringType),
+                th.Property("city", th.StringType),
+                th.Property("country_code", th.StringType),
+                th.Property("first_name", th.StringType),
+                th.Property("full_name", th.StringType),
+                th.Property("id", th.StringType),
+                th.Property("last_name", th.StringType),
+                th.Property("phone", th.StringType),
+                th.Property("postal_code", th.StringType),
+                th.Property("state_code", th.StringType),
+            ),
+        ),
+        th.Property("channel_type", th.StringType),
+        th.Property("confirmation_status", th.StringType),
+        th.Property("created_by", th.StringType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("currency", th.StringType),
+        th.Property("customer_info", th.ObjectType(                 
+            th.Property("_type", th.StringType),
+            th.Property("customer_id", th.StringType),
+            th.Property("customer_name", th.StringType),
+        )),
+        th.Property("customer_name", th.StringType),
+        th.Property("export_status", th.StringType),
+        th.Property("grouped_tax_items", th.ArrayType(
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("tax_rate", th.NumberType),
+                th.Property("tax_value", th.NumberType),
+        ))),
+        th.Property("guest", th.BooleanType),
+        th.Property("last_modified", th.DateTimeType),
+        th.Property("merchandize_total_tax", th.NumberType),
+        th.Property("notes",th.ObjectType(                  
+            th.Property("_type", th.StringType),
+            th.Property("link", th.StringType),
+        )),
+                th.Property("order_no", th.StringType),
+        th.Property("order_token", th.StringType),
+        th.Property("order_total", th.NumberType),
+        th.Property("payment_instruments",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("amount", th.NumberType),
+                    th.Property("payment_instrument_id", th.StringType),
+                    th.Property("payment_method_id", th.StringType),
+        ))),
+        th.Property("payment_status", th.StringType),
+        th.Property("product_items",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("adjusted_tax", th.NumberType),
+                    th.Property("base_price", th.NumberType),
+                    th.Property("bonus_product_line_item", th.BooleanType),
+                    th.Property("gift", th.BooleanType),
+                    th.Property("item_id", th.StringType),
+                    th.Property("item_text", th.StringType),
+                    th.Property("price", th.NumberType),
+                    th.Property("price_after_item_discount", th.NumberType),
+                    th.Property("price_after_order_discount", th.NumberType),
+                    th.Property("product_id", th.StringType),
+                    th.Property("product_name", th.StringType),
+                    th.Property("quantity", th.NumberType),
+                    th.Property("shipment_id", th.StringType),
+                    th.Property("tax", th.NumberType),
+                    th.Property("tax_basis", th.NumberType),
+                    th.Property("tax_class_id", th.StringType),
+                    th.Property("tax_rate", th.NumberType),
+        ))),
+        th.Property("product_sub_total", th.NumberType),
+        th.Property("product_total", th.NumberType),
+        th.Property("shipments",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("adjusted_merchandize_total_tax", th.NumberType),
+                    th.Property("adjusted_shipping_total_tax", th.NumberType),
+                    th.Property("gift", th.BooleanType),
+                    th.Property("merchandize_total_tax", th.NumberType),
+                    th.Property("product_sub_total", th.NumberType),
+                    th.Property("product_total", th.NumberType),
+                    th.Property("shipment_id", th.StringType),
+                    th.Property("shipment_total", th.NumberType),
+                    th.Property("shipping_address",th.ObjectType(                  
+                        th.Property("_type", th.StringType),
+                        th.Property("address1", th.StringType),
+                        th.Property("city", th.StringType),
+                        th.Property("country_code", th.StringType),
+                        th.Property("first_name", th.StringType),
+                        th.Property("full_name", th.StringType),
+                        th.Property("id", th.StringType),
+                        th.Property("last_name", th.StringType),
+                        th.Property("phone", th.StringType),
+                        th.Property("postal_code", th.StringType),
+                        th.Property("state_code", th.StringType),
+                    )),
+                    th.Property("shipping_method",th.ObjectType(                  
+                        th.Property("_type", th.StringType),
+                        th.Property("id", th.StringType),
+                        th.Property("name", th.StringType),
+                        th.Property("price", th.NumberType),
+                    )),
+                    th.Property("shipping_status", th.StringType),
+                    th.Property("shipping_total", th.NumberType),
+                    th.Property("shipping_total_tax", th.NumberType),
+                    th.Property("tax_total", th.NumberType),
+                    th.Property("shipping_items",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("adjusted_tax", th.NumberType),
+                    th.Property("base_price", th.NumberType),
+                    th.Property("item_id", th.StringType),
+                    th.Property("item_text", th.StringType),
+                    th.Property("price", th.NumberType),
+                    th.Property("price_after_item_discount", th.NumberType),
+                    th.Property("shipment_id", th.StringType),
+                    th.Property("tax", th.NumberType),
+                    th.Property("tax_basis", th.NumberType),
+                    th.Property("tax_class_id", th.StringType),
+                    th.Property("tax_rate", th.NumberType),
+        ))),
+        th.Property("shipping_status", th.StringType),
+        th.Property("shipping_total", th.NumberType),
+        th.Property("shipping_total_tax", th.NumberType),
+        th.Property("site_id", th.StringType),
+        th.Property("status", th.StringType),
+        th.Property("taxation", th.StringType),
+        th.Property("tax_rounded_at_group", th.BooleanType),
+        th.Property("tax_total", th.NumberType),
+        ))),
+    ).to_dict()
+
+
+    def prepare_request_payload(
+        self, context: Optional[dict], next_page_token: Optional[Any]
+    ) -> Optional[dict]:
+        start_date = self.get_starting_time(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        end_date = datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        payload = { 
+            "count": 200,
+            "query" : { 
+                "filtered_query": {
+                    "filter": {
+                        "range_filter": { 	
+                            "field": "last_modified",
+                            "from": start_date,
+                            "to": end_date
+                        }
+                    },
+                    "query" : {
+                        "match_all_query": {}
+                    }
+                }
+            },
+            "select" : "(**)",
+            "sorts" : [{"field":"last_modified", "sort_order":"asc"}],
+            "start": next_page_token or 0
+        }
+        return payload
 
