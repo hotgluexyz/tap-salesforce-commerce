@@ -9,6 +9,7 @@ from singer_sdk.streams import RESTStream
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth
+from pendulum import parse
 
 
 class SalesforceStream(RESTStream):
@@ -28,7 +29,7 @@ class SalesforceStream(RESTStream):
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
 
-        if self.name in ["products", "product_variations", "prices", "orders", "products_search"]:
+        if self.name in ["products", "product_variations", "prices", "orders", "all_orders", "products_search"]:
              url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
@@ -58,7 +59,7 @@ class SalesforceStream(RESTStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         """Return a token for identifying next page or None if no more pages."""
-        if response.status_code not in [404]:
+        if response.status_code not in [404, 204]:
             res_json = response.json()
             if "next" in res_json and res_json["next"]:
                 previous_token = previous_token or 0
@@ -66,6 +67,13 @@ class SalesforceStream(RESTStream):
                 count = res_json["count"]
                 next_page_token = previous_token + count
                 return next_page_token
+    
+    def get_starting_time(self, context):
+        start_date = self.config.get("start_date")
+        if start_date:
+            start_date = parse(self.config.get("start_date"))
+        rep_key = self.get_starting_timestamp(context)
+        return rep_key or start_date
 
     def get_url_params(
         self, context: Optional[dict], next_page_token: Optional[Any]
