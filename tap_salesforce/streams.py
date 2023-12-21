@@ -7,7 +7,7 @@ import requests
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
 from singer_sdk.helpers.jsonpath import extract_jsonpath
-
+import copy
 
 class InventoryListsStream(SalesforceStream):
     """Define custom stream."""
@@ -684,7 +684,7 @@ class OrdersStream(SalesforceStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         order_ids = self.order_ids
-        ids_len = len(order_ids)
+        ids_len = len(order_ids or [])
         previous_token = previous_token or 0
         if ids_len > 0 and previous_token < ids_len - 1:
             next_page_token = previous_token + 1
@@ -730,7 +730,32 @@ class OrdersStream(SalesforceStream):
             ),
         )
         return request
+    
+    def request_records(self, context: Optional[dict]) -> Iterable[dict]:
+        next_page_token: Any = None
+        finished = False
+        decorated_request = self.request_decorator(self._request)
 
+        while not finished:
+            prepared_request = self.prepare_request(
+                context, next_page_token=next_page_token
+            )
+            if self.order_ids:
+                resp = decorated_request(prepared_request, context)
+            else:
+                resp = []
+            yield from self.parse_response(resp)
+            previous_token = copy.deepcopy(next_page_token)
+            next_page_token = self.get_next_page_token(
+                response=resp, previous_token=previous_token
+            )
+            if next_page_token and next_page_token == previous_token:
+                raise RuntimeError(
+                    f"Loop detected in pagination. "
+                    f"Pagination token {next_page_token} is identical to prior token."
+                )
+            # Cycle until get_next_page_token() no longer returns a value
+            finished = not next_page_token
 
 class CustomerGroupsStream(SalesforceStream):
     """Define custom stream."""

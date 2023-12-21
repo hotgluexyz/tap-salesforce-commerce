@@ -113,5 +113,6 @@ class SalesforceStream(RESTStream):
             raise FatalAPIError(msg)
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
-        if response.status_code not in [404]:
-            yield from extract_jsonpath(self.records_jsonpath, input=response.json())
+        if response != []:
+            if response.status_code not in [404]:
+                yield from extract_jsonpath(self.records_jsonpath, input=response.json())
