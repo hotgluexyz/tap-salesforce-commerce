@@ -598,7 +598,7 @@ class SiteLocalesStream(SalesforceStream):
 class OrdersStream(SalesforceStream):
     """Define custom stream."""
 
-    name = "orders"
+    name = "orders_by_id"
     path = "/orders"
     primary_keys = ["id"]
     replication_key = None
