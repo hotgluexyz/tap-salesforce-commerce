@@ -919,6 +919,13 @@ class OrdersStream(SalesforceStream):
         th.Property("tax_rounded_at_group", th.BooleanType),
         th.Property("tax_total", th.NumberType),
         ))),
+        th.Property("tax_total", th.NumberType),
+        th.Property("shipping_status", th.StringType),
+        th.Property("shipping_total", th.NumberType),
+        th.Property("shipping_total_tax", th.NumberType),
+        th.Property("site_id", th.StringType),
+        th.Property("status", th.StringType),
+        th.Property("taxation", th.StringType),
     ).to_dict()
 
 
