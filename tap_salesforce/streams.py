@@ -7,7 +7,7 @@ import requests
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
 from singer_sdk.helpers.jsonpath import extract_jsonpath
-
+import copy
 
 class InventoryListsStream(SalesforceStream):
     """Define custom stream."""
@@ -595,96 +595,11 @@ class SiteLocalesStream(SalesforceStream):
         row.update({"site_id": context.get("site_id")})
         return row
 
-class OrdersStream(SalesforceStream):
-    """Define custom stream."""
-
-    name = "orders"
-    path = "/orders"
-    primary_keys = ["id"]
-    replication_key = None
-    records_jsonpath = "$."
-    select = "(**)"
-
-    @property
-    def order_ids(self):
-        return self.config.get("4gift_orders")
-
-    schema = th.PropertiesList(
-        th.Property("_v", th.StringType),
-        th.Property("_resource_state", th.StringType),
-        th.Property("_type", th.StringType),
-        th.Property("creation_date", th.DateTimeType),
-        th.Property("customer_info", th.CustomType({"type": ["object", "string"]})),
-        th.Property("currency", th.StringType),
-        th.Property("order_no", th.StringType),
-        th.Property("order_price_adjustments", th.ArrayType(
-            th.ObjectType(
-                th.Property("promotion_id", th.StringType),
-                th.Property("promotion_link", th.StringType),
-                th.Property("item_text", th.StringType),
-                th.Property("price", th.NumberType),
-            )
-        )),
-        th.Property("order_token", th.StringType),
-        th.Property("order_total", th.StringType),
-        th.Property("payment_instruments", th.ArrayType(
-            th.ObjectType(
-                th.Property("payment_instrument_id", th.StringType),
-                th.Property("payment_method_id", th.StringType),
-                th.Property("payment_card", th.CustomType({"type": ["object", "string"]})),
-                th.Property("amount", th.StringType),
-            )
-        )),
-        th.Property("product_items", th.ArrayType(
-            th.ObjectType(
-                th.Property("product_id", th.StringType),
-                th.Property("item_text", th.StringType),
-                th.Property("quantity", th.NumberType),
-                th.Property("product_name", th.StringType),
-                th.Property("base_price", th.StringType),
-                th.Property("price", th.StringType),
-                th.Property("price_adjustments", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
-            )
-        )),
-        th.Property("product_sub_total", th.NumberType),
-        th.Property("product_total", th.NumberType),
-        th.Property("shipping_total", th.NumberType),
-        th.Property("shipments", th.ArrayType(
-            th.ObjectType(
-                th.Property("id", th.StringType),
-                th.Property("shipping_address", th.ObjectType(
-                    th.Property("salutation", th.StringType),
-                    th.Property("title", th.StringType),
-                    th.Property("company_name", th.StringType),
-                    th.Property("first_name", th.StringType),
-                    th.Property("second_name", th.StringType),
-                    th.Property("last_name", th.StringType),
-                    th.Property("postal_code", th.StringType),
-                    th.Property("address1", th.StringType),
-                    th.Property("address2", th.StringType),
-                    th.Property("city", th.StringType),
-                    th.Property("post_box", th.StringType),
-                    th.Property("country_code", th.StringType),
-                    th.Property("state_code", th.StringType),
-                    th.Property("phone", th.StringType),
-                    th.Property("suffix", th.StringType),
-                )),
-                th.Property("shipping_method", th.ObjectType(
-                    th.Property("id", th.StringType),
-                    th.Property("name", th.StringType),
-                    th.Property("description", th.StringType),
-                )),
-            ),
-        )),
-        th.Property("status", th.DateTimeType),
-        th.Property("tax_total", th.CustomType({"type": ["object", "string"]})),
-    ).to_dict()
-
     def get_next_page_token(
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         order_ids = self.order_ids
-        ids_len = len(order_ids)
+        ids_len = len(order_ids or [])
         previous_token = previous_token or 0
         if ids_len > 0 and previous_token < ids_len - 1:
             next_page_token = previous_token + 1
@@ -730,7 +645,32 @@ class OrdersStream(SalesforceStream):
             ),
         )
         return request
+    
+    def request_records(self, context: Optional[dict]) -> Iterable[dict]:
+        next_page_token: Any = None
+        finished = False
+        decorated_request = self.request_decorator(self._request)
 
+        while not finished:
+            prepared_request = self.prepare_request(
+                context, next_page_token=next_page_token
+            )
+            if self.order_ids:
+                resp = decorated_request(prepared_request, context)
+            else:
+                resp = []
+            yield from self.parse_response(resp)
+            previous_token = copy.deepcopy(next_page_token)
+            next_page_token = self.get_next_page_token(
+                response=resp, previous_token=previous_token
+            )
+            if next_page_token and next_page_token == previous_token:
+                raise RuntimeError(
+                    f"Loop detected in pagination. "
+                    f"Pagination token {next_page_token} is identical to prior token."
+                )
+            # Cycle until get_next_page_token() no longer returns a value
+            finished = not next_page_token
 
 class CustomerGroupsStream(SalesforceStream):
     """Define custom stream."""
@@ -829,10 +769,10 @@ class CustomerAddressesStream(SalesforceStream):
     ).to_dict()
 
 
-class AllOrdersStream(SalesforceStream):
+class OrdersStream(SalesforceStream):
     """Define custom stream."""
 
-    name = "all_orders"
+    name = "orders"
     path = "/order_search"
     replication_key = "last_modified"
     records_jsonpath = "$.hits[*].data"
@@ -883,7 +823,7 @@ class AllOrdersStream(SalesforceStream):
             th.Property("_type", th.StringType),
             th.Property("link", th.StringType),
         )),
-                th.Property("order_no", th.StringType),
+        th.Property("order_no", th.StringType),
         th.Property("order_token", th.StringType),
         th.Property("order_total", th.NumberType),
         th.Property("payment_instruments",
@@ -979,17 +919,36 @@ class AllOrdersStream(SalesforceStream):
         th.Property("tax_rounded_at_group", th.BooleanType),
         th.Property("tax_total", th.NumberType),
         ))),
+        th.Property("tax_total", th.NumberType),
+        th.Property("shipping_status", th.StringType),
+        th.Property("shipping_total", th.NumberType),
+        th.Property("shipping_total_tax", th.NumberType),
+        th.Property("site_id", th.StringType),
+        th.Property("status", th.StringType),
+        th.Property("taxation", th.StringType),
     ).to_dict()
 
 
     def prepare_request_payload(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Optional[dict]:
-        start_date = self.get_starting_time(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        end_date = datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        payload = { 
-            "count": 200,
-            "query" : { 
+        if self.config.get("order_ids"):
+            pagination = 0
+            next_page_token = next_page_token or 0
+            order_ids = self.config.get("order_ids")
+            query = { 
+                "text_query": { 
+                    "fields": [
+                        "order_no"
+                    ],
+                    "search_phrase":order_ids[next_page_token]
+                }
+            }
+        else:
+            pagination = next_page_token
+            start_date = self.get_starting_time(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            end_date = datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            query = { 
                 "filtered_query": {
                     "filter": {
                         "range_filter": { 	
@@ -1002,10 +961,56 @@ class AllOrdersStream(SalesforceStream):
                         "match_all_query": {}
                     }
                 }
-            },
+            }
+
+        payload = { 
+            "count": 200,
+            "query" : query,
             "select" : "(**)",
             "sorts" : [{"field":"last_modified", "sort_order":"asc"}],
-            "start": next_page_token or 0
+            "start": pagination
         }
         return payload
+    
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        """Return a context dictionary for child streams."""
+        return {
+            "order_no": record["order_no"],
+        }
+    
+    def get_next_page_token(
+        self, response: requests.Response, previous_token: Optional[Any]
+    ) -> Optional[Any]:
+        order_ids = self.config.get("order_ids")
+        if order_ids:
+            previous_token = previous_token or 0
+            if previous_token < len(order_ids) - 1:
+                next_page_token = previous_token + 1
+                return next_page_token
+            return None
+        if response.status_code not in [404, 204]:
+            res_json = response.json()
+            if "next" in res_json and res_json["next"]:
+                previous_token = previous_token or 0
+                res_json = response.json()
+                count = res_json["count"]
+                next_page_token = previous_token + count
+                return next_page_token
 
+class OrderNotesStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "order_notes"
+    path = "/orders/{order_no}/notes"
+    records_jsonpath = "$.notes[*]"
+    parent_stream_type = OrdersStream
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("created_by", th.StringType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("id", th.StringType),
+        th.Property("subject", th.StringType),
+        th.Property("text", th.StringType),
+        th.Property("order_no", th.StringType),
+    ).to_dict()

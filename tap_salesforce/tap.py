@@ -18,13 +18,13 @@ from tap_salesforce.streams import (
     SiteLocalesStream,
     ProductsPricesStream,
     OrdersStream,
-    AllOrdersStream,
     CustomerGroupsStream,
     CustomersStream,
-    CustomerAddressesStream
+    CustomerAddressesStream,
     CatalogsByIdStream,
     ProductSearchStream,
-    AllProductsIdsStream
+    AllProductsIdsStream,
+    OrderNotesStream
 )
 
 STREAM_TYPES = [
@@ -39,13 +39,13 @@ STREAM_TYPES = [
     SiteLocalesStream,
     ProductsPricesStream,
     OrdersStream,
-    AllOrdersStream,
     CustomerGroupsStream,
     CustomersStream,
-    CustomerAddressesStream
+    CustomerAddressesStream,
     CatalogsByIdStream,
     ProductSearchStream,
-    AllProductsIdsStream
+    AllProductsIdsStream,
+    OrderNotesStream
 ]
 
 

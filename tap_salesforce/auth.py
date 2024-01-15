@@ -61,3 +61,24 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
             stream=stream,
             auth_endpoint="https://account.demandware.com/dw/oauth2/access_token",
         )
+    
+class SalesForceUsernameAuth(SalesForceAuth):
+    """Authenticator class for TapDynamicsFinance."""
+
+    # Authentication and refresh
+    def update_access_token(self) -> None:
+        domain = self.config.get("sf_domain", self.config.get("domain"))
+        client_id = self.config["client_id"]
+        auth_str = f"{self.config['username']}:{self.config['password']}:{self.config['client_secret']}"
+        auth_header = base64.b64encode(auth_str.encode("ascii")).decode("ascii")
+
+        r = requests.post(
+            f"https://{domain}.dx.commercecloud.salesforce.com/dw/oauth2/access_token?client_id={client_id}",
+            headers={"Authorization": f"Basic {auth_header}"},
+            data={
+                "grant_type": "urn:demandware:params:oauth:grant-type:client-id:dwsid:dwsecuretoken"
+            },
+        )
+        auth_payload = r.json()
+        self.access_token = auth_payload["access_token"]
+

@@ -8,7 +8,7 @@ from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.streams import RESTStream
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from memoization import cached
-from tap_salesforce.auth import SalesForceAuth
+from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
 
 
@@ -29,7 +29,7 @@ class SalesforceStream(RESTStream):
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = self.config["site_id"]
 
-        if self.name in ["products", "product_variations", "prices", "orders", "all_orders", "products_search"]:
+        if self.name in ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes"]:
              url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
@@ -43,6 +43,8 @@ class SalesforceStream(RESTStream):
     @cached
     def authenticator(self) -> SalesForceAuth:
         """Return a new authenticator object."""
+        if self.name == "order_notes":
+            return SalesForceUsernameAuth.create_for_stream(self)
         return SalesForceAuth.create_for_stream(self)
 
     @property
@@ -113,5 +115,6 @@ class SalesforceStream(RESTStream):
             raise FatalAPIError(msg)
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
-        if response.status_code not in [404]:
-            yield from extract_jsonpath(self.records_jsonpath, input=response.json())
+        if response != []:
+            if response.status_code not in [404]:
+                yield from extract_jsonpath(self.records_jsonpath, input=response.json())
