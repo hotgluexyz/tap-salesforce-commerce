@@ -321,9 +321,13 @@ class ProductsStream(SalesforceStream):
             raise RetriableAPIError(msg, response)
         elif (
             400 <= response.status_code < 500
-            and response.json()["fault"]["type"] != "ProductNotFoundException"
-        ):
+            and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
+        ):  
+            res_json = response.json()
+            error_title = res_json.get("title", "")
+            error_detail = res_json.get("detail", res_json.get("fault")) or ""
             msg = self.response_error_message(response)
+            msg = f"{msg}, Salesforce error: {error_title} - {error_detail}"
             raise FatalAPIError(msg)
 
 
