@@ -112,7 +112,9 @@ class SalesforceStream(RESTStream):
             and response.json()["fault"]["type"] != "ProductNotFoundException"
         ):
             msg = self.response_error_message(response)
-            raise FatalAPIError(msg)
+            error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {response.text}"
+            self.logger.warn(error_message)
+            raise FatalAPIError(error_message)
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
         if response != []:
