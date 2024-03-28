@@ -71,10 +71,17 @@ class SalesForceUsernameAuth(SalesForceAuth):
         client_id = self.config["client_id"]
         auth_str = f"{self.config['username']}:{self.config['password']}:{self.config['client_secret']}"
         auth_header = base64.b64encode(auth_str.encode("ascii")).decode("ascii")
+        url = f"https://{domain}.dx.commercecloud.salesforce.com/dw/oauth2/access_token?client_id={client_id}"
+        if self.config.get("full_domain"):
+            url = f"{self.config.get('full_domain')}/dw/oauth2/access_token?client_id={client_id}"
+
 
         r = requests.post(
-            f"https://{domain}.dx.commercecloud.salesforce.com/dw/oauth2/access_token?client_id={client_id}",
-            headers={"Authorization": f"Basic {auth_header}"},
+            url,
+            headers={
+                "Authorization": f"Basic {auth_header}",
+                "content-type":"application/x-www-form-urlencoded"
+                },
             data={
                 "grant_type": "urn:demandware:params:oauth:grant-type:client-id:dwsid:dwsecuretoken"
             },
