@@ -968,7 +968,7 @@ class OrdersStream(SalesforceStream):
             }
 
         payload = { 
-            "count": 200,
+            "count": 100,
             "query" : query,
             "select" : "(**)",
             "sorts" : [{"field":"last_modified", "sort_order":"asc"}],
