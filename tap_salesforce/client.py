@@ -10,6 +10,13 @@ from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
+from bs4 import BeautifulSoup
+
+
+def extract_text_from_html(content: str) -> str:
+    soup = BeautifulSoup(content, 'html.parser')
+    text = '\n'.join(soup.stripped_strings)
+    return text
 
 
 class SalesforceStream(RESTStream):
@@ -107,14 +114,16 @@ class SalesforceStream(RESTStream):
         ):
             msg = self.response_error_message(response)
             raise RetriableAPIError(msg, response)
-        elif (
-            400 <= response.status_code < 500
-            and response.json().get("fault", {}).get("type") != "ProductNotFoundException"
-        ):
+        try:
             res_json = response.json()
-            error_title = res_json.get("title", "")
-            error_detail = res_json.get("detail", res_json.get("fault")) or ""
-            msg = self.response_error_message(response)
+        except requests.exceptions.JSONDecodeError:
+            resp_text = extract_text_from_html(response.text)
+            error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response: {resp_text}"
+            raise FatalAPIError(error_message)
+        if (
+            400 <= response.status_code < 500
+            and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
+        ):
             error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {response.text}"
             self.logger.warn(error_message)
             raise FatalAPIError(error_message)
