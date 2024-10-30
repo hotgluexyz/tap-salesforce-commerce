@@ -1,7 +1,6 @@
 """REST client handling, including SalesforceStream base class."""
 
 import requests
-from pathlib import Path
 from typing import Any, Dict, Optional, Iterable
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -116,10 +115,10 @@ class SalesforceStream(RESTStream):
             raise RetriableAPIError(msg, response)
         try:
             res_json = response.json()
-        except requests.exceptions.JSONDecodeError:
+        except Exception as exc:
             resp_text = extract_text_from_html(response.text)
-            error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response: {resp_text}"
-            raise FatalAPIError(error_message)
+            error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
+            raise FatalAPIError(error_message) from None
         if (
             400 <= response.status_code < 500
             and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
