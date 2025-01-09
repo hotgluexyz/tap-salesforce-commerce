@@ -27,15 +27,16 @@ class SalesforceStream(RESTStream):
     last_refreshed = None
     params = {}
     product_ids = []
+    SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes"]
 
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
         full_domain = self.config.get("full_domain")
         domain = self.config.get("sf_domain", self.config.get("domain"))
-        site_id = self.config["site_id"]
+        site_id = "{site_id}"
 
-        if self.name in ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes"]:
+        if self.name in self.SITE_SPECIFIC_STREAMS:
              url_base = f"{full_domain}/s/{site_id}/dw/shop/{self.api_version}" if full_domain is not None else f"https://{domain}.dx.commercecloud.salesforce.com/s/{site_id}/dw/shop/{self.api_version}"
         else:
             # Non site specific URL
@@ -62,6 +63,17 @@ class SalesforceStream(RESTStream):
             headers["Accept"] = "application/json"
         headers["x-dw-client-id"] = str(self.config.get("client_id"))
         return headers
+
+    def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
+        if self.name in self.SITE_SPECIFIC_STREAMS:
+            site_ids = self.config.get("site_id").replace(" ", "").split(",")
+            for site_id in site_ids:
+                if context is None:
+                    context = {}
+                context.update({"site_id": site_id})
+                yield from super().get_records(context)
+        else:
+            yield from super().get_records(context)
 
     def get_next_page_token(
         self, response: requests.Response, previous_token: Optional[Any]
