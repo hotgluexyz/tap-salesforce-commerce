@@ -4,8 +4,11 @@ import requests
 from typing import Any, Dict, Optional, Iterable
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
+from singer_sdk.helpers._typing import to_json_compatible
+from singer_sdk.helpers._state import write_starting_replication_value, STARTING_MARKER
 from singer_sdk.streams import RESTStream
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from singer_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
@@ -64,13 +67,92 @@ class SalesforceStream(RESTStream):
         headers["x-dw-client-id"] = str(self.config.get("client_id"))
         return headers
 
+    def _increment_stream_state(self, latest_record: Dict[str, Any], *, context: Optional[dict] = None):
+        if self.name in self.SITE_SPECIFIC_STREAMS and "," in self.config.get("site_id", ""):
+            self.__increment_stream_state(latest_record, context = context)
+        else:
+            super()._increment_stream_state(latest_record, context = context)
+            
+    def _write_starting_replication_value(self, context: Optional[dict]) -> None:
+        if self.name in self.SITE_SPECIFIC_STREAMS and "," in self.config.get("site_id", ""):
+            self.__write_starting_replication_value(context)
+        else:
+            super()._write_starting_replication_value(context)
+
+    def __increment_stream_state(
+        self, latest_record: Dict[str, Any], context: Optional[dict] = None
+    ) -> None:
+        def increment_state(
+            stream_or_partition_state: dict,
+            latest_record: dict,
+            replication_key: str,
+            is_sorted: bool,
+        ) -> None:
+            """Update the state using data from the latest record.
+
+            Raises InvalidStreamSortException if is_sorted=True and unsorted
+            data is detected in the stream.
+            """
+            progress_dict = stream_or_partition_state
+            old_rk_value = to_json_compatible(progress_dict.get("replication_key_value"))
+            new_rk_value = to_json_compatible(latest_record[replication_key])
+            if old_rk_value is None or new_rk_value >= old_rk_value:
+                progress_dict["replication_key"] = replication_key
+                progress_dict["replication_key_value"] = new_rk_value
+                return
+        
+        state_dict = self.get_context_state(context)
+        if latest_record:
+            if self.replication_method in [
+                REPLICATION_INCREMENTAL,
+                REPLICATION_LOG_BASED,
+            ]:
+                if not self.replication_key:
+                    raise ValueError(
+                        f"Could not detect replication key for '{self.name}' stream"
+                        f"(replication method={self.replication_method})"
+                    )
+                treat_as_sorted = self.is_sorted
+                if not treat_as_sorted and self.state_partitioning_keys is not None:
+                    # Streams with custom state partitioning are not resumable.
+                    treat_as_sorted = False
+                increment_state(
+                    state_dict,
+                    replication_key=self.replication_key,
+                    latest_record=latest_record,
+                    is_sorted=treat_as_sorted,
+                )
+
+    def __write_starting_replication_value(self, context: Optional[dict]) -> None:
+        """Write the starting replication value, if available.
+
+        Args:
+            context: Stream partition or context dictionary.
+        """
+        value = None
+        state = self.get_context_state(context)
+
+        if self.replication_key:
+            replication_key_value = state.get("replication_key_value")
+            if replication_key_value and self.replication_key == state.get(
+                "replication_key"
+            ):
+                value = replication_key_value
+
+            elif "start_date" in self.config:
+                value = self.config["start_date"]
+        if STARTING_MARKER not in state:
+            write_starting_replication_value(state, value)
+
     def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
-        if self.name in self.SITE_SPECIFIC_STREAMS:
+        if self.name in self.SITE_SPECIFIC_STREAMS and "," in self.config.get("site_id", ""):
             site_ids = self.config.get("site_id").replace(" ", "").split(",")
             for site_id in site_ids:
                 if context is None:
                     context = {}
+                context = context.copy()
                 context.update({"site_id": site_id})
+                self._write_starting_replication_value(context)
                 yield from super().get_records(context)
         else:
             yield from super().get_records(context)
