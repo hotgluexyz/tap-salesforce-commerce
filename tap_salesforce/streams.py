@@ -576,6 +576,8 @@ class SiteLocalesStream(SalesforceStream):
     select = "(**)"
     include_all = True
     parent_stream_type = SitesStream
+    order_ids = []  
+    
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
@@ -592,6 +594,10 @@ class SiteLocalesStream(SalesforceStream):
         th.Property("name", th.StringType),
         th.Property("site_id", th.StringType),
     ).to_dict()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.order_ids = self.config.get("order_ids", [])
 
     def post_process(self, row: dict, context: Optional[dict] = None) -> Optional[dict]:
         row.update({"site_id": context.get("site_id")})
