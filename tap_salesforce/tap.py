@@ -25,7 +25,7 @@ from tap_salesforce.streams import (
     ProductSearchStream,
     AllProductsIdsStream,
     OrderNotesStream,
-    ProductsDatApiStream,
+    ProductsDataApiStream,
     ProductVariationsListStream,
     ProductsVariantsDataApiStream
 )
@@ -49,7 +49,7 @@ STREAM_TYPES = [
     ProductSearchStream,
     AllProductsIdsStream,
     OrderNotesStream,
-    ProductsDatApiStream,
+    ProductsDataApiStream,
     ProductVariationsListStream,
     ProductsVariantsDataApiStream
 ]
