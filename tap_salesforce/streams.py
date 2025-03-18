@@ -329,7 +329,7 @@ class ProductsStream(SalesforceStream):
                 raise FatalAPIError(msg)
 
 
-class ProductsDatApiStream(SalesforceStream):
+class ProductsDataApiStream(SalesforceStream):
     """Define custom stream."""
 
     name = "products_data_api"
