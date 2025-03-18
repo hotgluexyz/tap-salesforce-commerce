@@ -425,7 +425,7 @@ class ProductVariationsListStream(SalesforceStream):
     path = "/products/{master_product_id}/variations"
     count = 200
     records_jsonpath = "$.data[*]"
-    parent_stream_type = ProductsDatApiStream
+    parent_stream_type = ProductsDataApiStream
 
     schema = th.PropertiesList(
         th.Property("product_id", th.StringType)
