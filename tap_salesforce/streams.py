@@ -55,7 +55,7 @@ class ProductInventoryRecords(SalesforceStream):
         product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
         SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
         # parse_response as usual
-        yield from extract_jsonpath(self.records_jsonpath, input=response)
+        yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
 
 class CatalogsStream(SalesforceStream):
@@ -181,7 +181,7 @@ class ProductSearchStream(SalesforceStream):
         product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("hits", [])]
         SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
         # parse_response as usual
-        yield from extract_jsonpath(self.records_jsonpath, input=response)
+        yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
 
 class AllProductsIdsStream(SalesforceStream):
@@ -289,7 +289,7 @@ class ProductsStream(SalesforceStream):
             return next_page_token
         
         #initialize first curency for next product
-        self.first_currency = "USD"
+        self.first_currency = self.currencies[0]
         return None
 
     def get_url_params(
@@ -312,7 +312,8 @@ class ProductsStream(SalesforceStream):
         if response.status_code == 400:
             res_json = response.json()
             if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
-                pass
+                # TODO: should we be removing the currency here? I think so, to avoid repeated 400 errors
+                self.currencies.remove(res_json.get("fault", {}).get("arguments", {}).get("currency"))
         elif (
             response.status_code in self.extra_retry_statuses
             or 500 <= response.status_code < 600
@@ -433,7 +434,14 @@ class ProductVariationsListStream(SalesforceStream):
 
     def get_child_context(self, record, context) -> dict:
         return {"variation_id": record["product_id"], "master_product_id": context["master_product_id"]}
-    
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        # add product_ids to a global env to use them in products/{product_id}
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        # parse_response as usual
+        yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
 class ProductsVariantsDataApiStream(SalesforceStream):
     """Define product variants data stream."""

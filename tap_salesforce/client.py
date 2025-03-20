@@ -14,6 +14,7 @@ from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
 from bs4 import BeautifulSoup
 
+import singer
 
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
@@ -169,7 +170,7 @@ class SalesforceStream(RESTStream):
                 count = res_json["count"]
                 next_page_token = previous_token + count
                 return next_page_token
-    
+
     def get_starting_time(self, context):
         start_date = self.config.get("start_date")
         if start_date:
@@ -225,3 +226,15 @@ class SalesforceStream(RESTStream):
         if response != []:
             if response.status_code not in [404]:
                 yield from extract_jsonpath(self.records_jsonpath, input=response.json())
+
+    def _write_state_message(self) -> None:
+        """Write out a STATE message with the latest state."""
+        tap_state = self.tap_state
+
+        if tap_state and tap_state.get("bookmarks"):
+            for stream_name in tap_state.get("bookmarks").keys():
+                # any child stream with no replication key doesn't need to be partitioned
+                if tap_state["bookmarks"][stream_name].get("partitions") and not self.replication_key:
+                    tap_state["bookmarks"][stream_name] = {"partitions": []}
+
+        singer.write_message(singer.StateMessage(value=tap_state))
