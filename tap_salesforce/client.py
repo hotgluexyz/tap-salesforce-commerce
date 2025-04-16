@@ -13,6 +13,7 @@ from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
 from bs4 import BeautifulSoup
+import copy
 
 import singer
 
@@ -32,7 +33,8 @@ class SalesforceStream(RESTStream):
     params = {}
     product_ids = []
     SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes"]
-
+    max_dates = []
+    start_date = None
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
@@ -162,14 +164,45 @@ class SalesforceStream(RESTStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         """Return a token for identifying next page or None if no more pages."""
-        if response.status_code not in [404, 204]:
+        if previous_token is None:
+            self.start_date = None
+
+        if response.status_code in [204, 404]:
+            return None
+
+        res_json = response.json()
+        if "next" in res_json and res_json["next"]:
+            previous_token = previous_token or 0
             res_json = response.json()
-            if "next" in res_json and res_json["next"]:
-                previous_token = previous_token or 0
-                res_json = response.json()
-                count = res_json["count"]
-                next_page_token = previous_token + count
-                return next_page_token
+            count = res_json["count"]
+            next_page_token = previous_token + count
+            # For order_search endpoints, Salesforce has a 10000 record limit for pagination
+            # When we hit that limit, we need to use the latest replication key value 
+            # to filter and restart pagination from 0
+            pagination_limit_streams = ["order_search"] #it seems that this is the only endpoint that has this limit so far.
+            pagination_limit = 10000
+            if self.name in pagination_limit_streams and self.replication_key and next_page_token is not None and next_page_token >= pagination_limit:
+                
+                max_date = self.stream_state.get("progress_markers", {}).get(
+                    "replication_key_value"
+                )
+
+                if max_date:
+                    max_date = parse(max_date)
+                else:
+                    self.logger.warn("No replication key value found, not possible to continue pagination")
+                    return None
+
+                if max_date:
+                    if max_date in self.max_dates:
+                        self.logger.warn("Date based pagination loop detected")
+                        return None
+                    self.max_dates.append(max_date)
+                    self.start_date = max_date
+
+                next_page_token = 0
+
+            return next_page_token
 
     def get_starting_time(self, context):
         start_date = self.config.get("start_date")
@@ -238,3 +271,40 @@ class SalesforceStream(RESTStream):
                     tap_state["bookmarks"][stream_name] = {"partitions": []}
 
         singer.write_message(singer.StateMessage(value=tap_state))
+
+    def request_records(self, context: Optional[dict]) -> Iterable[dict]:
+        """Request records from REST endpoint(s), returning response records.
+
+        If pagination is detected, pages will be recursed automatically.
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Yields:
+            An item for every record in the response.
+
+        Raises:
+            RuntimeError: If a loop in pagination is detected. That is, when two
+                consecutive pagination tokens are identical.
+        """
+        next_page_token: Any = None
+        finished = False
+        decorated_request = self.request_decorator(self._request)
+
+        while not finished:
+            prepared_request = self.prepare_request(
+                context, next_page_token=next_page_token
+            )
+            resp = decorated_request(prepared_request, context)
+            yield from self.parse_response(resp)
+            previous_token = copy.deepcopy(next_page_token)
+            next_page_token = self.get_next_page_token(
+                response=resp, previous_token=previous_token
+            )
+            if next_page_token and next_page_token == previous_token:
+                raise RuntimeError(
+                    f"Loop detected in pagination. "
+                    f"Pagination token {next_page_token} is identical to prior token."
+                )
+            # Cycle until get_next_page_token() no longer returns a value
+            finished = next_page_token is None
