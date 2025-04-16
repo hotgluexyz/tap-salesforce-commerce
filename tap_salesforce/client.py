@@ -179,7 +179,7 @@ class SalesforceStream(RESTStream):
             # For order_search endpoints, Salesforce has a 10000 record limit for pagination
             # When we hit that limit, we need to use the latest replication key value 
             # to filter and restart pagination from 0
-            pagination_limit_streams = ["order_search"] #it seems that this is the only endpoint that has this limit so far.
+            pagination_limit_streams = ["orders"] #it seems that this is the only endpoint that has this limit so far.
             pagination_limit = 10000
             if self.name in pagination_limit_streams and self.replication_key and next_page_token is not None and next_page_token >= pagination_limit:
                 
