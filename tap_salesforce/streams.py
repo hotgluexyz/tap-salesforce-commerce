@@ -1128,7 +1128,7 @@ class OrdersStream(SalesforceStream):
             }
         else:
             pagination = next_page_token
-            start_date = self.get_starting_time(context).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            start_date = (self.start_date or self.get_starting_time(context)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             end_date = datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             query = { 
                 "filtered_query": {
@@ -1171,14 +1171,9 @@ class OrdersStream(SalesforceStream):
                 next_page_token = previous_token + 1
                 return next_page_token
             return None
-        if response.status_code not in [404, 204]:
-            res_json = response.json()
-            if "next" in res_json and res_json["next"]:
-                previous_token = previous_token or 0
-                res_json = response.json()
-                count = res_json["count"]
-                next_page_token = previous_token + count
-                return next_page_token
+        else:
+            return super().get_next_page_token(response, previous_token)
+
 
 class OrderNotesStream(SalesforceStream):
     """Define custom stream."""
