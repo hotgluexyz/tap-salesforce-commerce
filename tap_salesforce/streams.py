@@ -4,6 +4,7 @@ from singer_sdk import typing as th
 from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
+from simplejson.scanner import JSONDecodeError 
 from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
 from singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -309,25 +310,32 @@ class ProductsStream(SalesforceStream):
         return []
     
     def validate_response(self, response: requests.Response) -> None:
-        if response.status_code == 400:
-            res_json = response.json()
-            if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
-                # TODO: should we be removing the currency here? I think so, to avoid repeated 400 errors
-                self.currencies.remove(res_json.get("fault", {}).get("arguments", {}).get("currency"))
-        elif (
-            response.status_code in self.extra_retry_statuses
-            or 500 <= response.status_code < 600
-        ):
-            msg = self.response_error_message(response)
-            raise RetriableAPIError(msg, response)
-        elif 400 <= response.status_code < 500:  
-            res_json = response.json()  
-            if res_json.get("fault", {}).get("type") != "ProductNotFoundException":
-                error_title = res_json.get("title", "")
-                error_detail = res_json.get("detail", res_json.get("fault")) or ""
+        try:
+            if response.status_code == 400:
+                res_json = response.json()
+                if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
+                    # TODO: should we be removing the currency here? I think so, to avoid repeated 400 errors
+                    self.currencies.remove(res_json.get("fault", {}).get("arguments", {}).get("currency"))
+            elif (
+                response.status_code in self.extra_retry_statuses
+                or 500 <= response.status_code < 600
+            ):
                 msg = self.response_error_message(response)
-                msg = f"{msg}, Salesforce error: {error_title} - {error_detail}"
-                raise FatalAPIError(msg)
+                raise RetriableAPIError(msg, response)
+            elif 400 <= response.status_code < 500:  
+                res_json = response.json()  
+                if res_json.get("fault", {}).get("type") != "ProductNotFoundException":
+                    error_title = res_json.get("title", "")
+                    error_detail = res_json.get("detail", res_json.get("fault")) or ""
+                    msg = self.response_error_message(response)
+                    msg = f"{msg}, Salesforce error: {error_title} - {error_detail}"
+                    raise FatalAPIError(msg)
+        except JSONDecodeError:
+            msg = (
+                f"Received non-JSON response from {self.path}. "
+                f"Content preview: {response.text}"
+            )
+            raise FatalAPIError(msg)
 
 
 class ProductsDataApiStream(SalesforceStream):
