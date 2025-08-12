@@ -39,6 +39,7 @@ class SalesforceStream(RESTStream):
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
         full_domain = self.config.get("full_domain")
+        full_domain = "https://" + full_domain if not full_domain.startswith("http") else full_domain
         domain = self.config.get("sf_domain", self.config.get("domain"))
         site_id = "{site_id}"
 
