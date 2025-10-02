@@ -241,13 +241,15 @@ class SalesforceStream(RESTStream):
             or 500 <= response.status_code < 600
         ):
             msg = self.response_error_message(response)
+            count = self.config.get("order_page_size") if hasattr(self.config,"order_page_size") else self.count if hasattr(self,"count") else 200
+            self.count = count / 2
             raise RetriableAPIError(msg, response)
         try:
             res_json = response.json()
         except Exception as exc:
             resp_text = extract_text_from_html(response.text)
             error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
-            raise FatalAPIError(error_message) from None
+            raise RetriableAPIError(error_message) from None
         if (
             400 <= response.status_code < 500
             and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
@@ -272,6 +274,13 @@ class SalesforceStream(RESTStream):
                     tap_state["bookmarks"][stream_name] = {"partitions": []}
 
         singer.write_message(singer.StateMessage(value=tap_state))
+    
+    def _make_request(self, context: Optional[dict], next_page_token: Optional[Any]) -> requests.Response:
+        prepared_request = self.prepare_request(
+            context, next_page_token=next_page_token
+        )
+        resp = self._request(prepared_request, context)
+        return resp
 
     def request_records(self, context: Optional[dict]) -> Iterable[dict]:
         """Request records from REST endpoint(s), returning response records.
@@ -290,13 +299,10 @@ class SalesforceStream(RESTStream):
         """
         next_page_token: Any = None
         finished = False
-        decorated_request = self.request_decorator(self._request)
+        decorated_request = self.request_decorator(self._make_request)
 
         while not finished:
-            prepared_request = self.prepare_request(
-                context, next_page_token=next_page_token
-            )
-            resp = decorated_request(prepared_request, context)
+            resp = decorated_request(context, next_page_token)
             yield from self.parse_response(resp)
             previous_token = copy.deepcopy(next_page_token)
             next_page_token = self.get_next_page_token(

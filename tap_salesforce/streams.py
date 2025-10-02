@@ -1155,9 +1155,9 @@ class OrdersStream(SalesforceStream):
                 }
             }
 
-        order_page_size = self.config.get("order_page_size", 200)
+        order_page_size = self.count if hasattr(self,"count") else self.config.get("order_page_size", 200) 
         payload = { 
-            "count": order_page_size,
+            "count": int(order_page_size),
             "query" : query,
             "select" : "(**)",
             "sorts" : [{"field":"last_modified", "sort_order":"asc"}],
