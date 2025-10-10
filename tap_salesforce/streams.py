@@ -9,6 +9,7 @@ from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 import copy
+from tap_salesforce.client import extract_text_from_html
 
 class InventoryListsStream(SalesforceStream):
     """Define custom stream."""
@@ -313,12 +314,12 @@ class ProductsStream(SalesforceStream):
         res_json = {}
         try:
             res_json = response.json()
-        except JSONDecodeError:
-            msg = (
-                f"Received non-JSON response from {self.path}. "
-                f"Content preview: {response.text}"
-            )
-            raise FatalAPIError(msg)
+        except JSONDecodeError as exc:
+            resp_text = extract_text_from_html(response.text)
+            error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
+            if response.status_code == 403:
+                raise FatalAPIError(error_message) from None
+            raise RetriableAPIError(error_message) from None
         
         if response.status_code == 400:
             if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
