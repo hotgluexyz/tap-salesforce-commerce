@@ -316,3 +316,16 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
+
+
+    def backoff_max_tries(self):
+        """The number of attempts before giving up when retrying requests.
+
+        Can be an integer, a zero-argument callable that returns an integer,
+        or ``None`` to retry indefinitely.
+
+        Returns:
+            int | Callable[[], int] | None: Number of max retries, callable or
+            ``None``.
+        """
+        return 10
