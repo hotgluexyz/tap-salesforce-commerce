@@ -11,6 +11,7 @@ from singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
 from singer_sdk.streams import Stream as RESTStreamBase
 from datetime import datetime
 import base64
+from singer import utils
 
 # The SingletonMeta metaclass makes your streams reuse the same authenticator instance.
 # If this behaviour interferes with your use-case, you can remove the metaclass.
@@ -54,6 +55,20 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
                 "expires."
             )
         self.last_refreshed = request_time
+    
+    def is_token_valid(self) -> bool:
+        """Check if token is valid.
+
+        Returns:
+            True if the token is valid (fresh).
+        """
+        if self.last_refreshed is None:
+            return False
+        if not self.expires_in:
+            return True
+        if (self.expires_in - 120) > (utils.now() - self.last_refreshed).total_seconds():
+            return True
+        return False
 
     @classmethod
     def create_for_stream(cls, stream) -> "SalesForceAuth":

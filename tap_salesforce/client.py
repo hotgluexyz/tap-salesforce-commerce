@@ -14,7 +14,7 @@ from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
 from bs4 import BeautifulSoup
 import copy
-
+from tap_salesforce.utils import cover_access_token
 import singer
 
 def extract_text_from_html(content: str) -> str:
@@ -253,8 +253,9 @@ class SalesforceStream(RESTStream):
         if (
             400 <= response.status_code < 500
             and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
-        ):
-            error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {response.text}"
+        ):  
+            resp_text = cover_access_token(response.text)
+            error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {resp_text}"
             self.logger.warn(error_message)
             raise FatalAPIError(error_message)
 
