@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 import copy
 from tap_salesforce.utils import cover_access_token
 import singer
+import backoff
 
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
@@ -276,6 +277,7 @@ class SalesforceStream(RESTStream):
 
         singer.write_message(singer.StateMessage(value=tap_state))
     
+    @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException, RetriableAPIError), max_tries=10)
     def _make_request(self, context: Optional[dict], next_page_token: Optional[Any]) -> requests.Response:
         prepared_request = self.prepare_request(
             context, next_page_token=next_page_token
@@ -316,3 +318,4 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
+
