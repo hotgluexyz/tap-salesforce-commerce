@@ -1,13 +1,13 @@
 """Stream type classes for tap-salesforce."""
 
-from singer_sdk import typing as th
+from tap_hotglue_sdk import typing as th
 from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from simplejson.scanner import JSONDecodeError 
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from tap_hotglue_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
-from singer_sdk.helpers.jsonpath import extract_jsonpath
+from tap_hotglue_sdk.helpers.jsonpath import extract_jsonpath
 import copy
 
 class InventoryListsStream(SalesforceStream):
@@ -227,6 +227,7 @@ class ProductsStream(SalesforceStream):
     parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
+    paralellization_limit = 10
 
 
     schema = th.PropertiesList(
@@ -437,6 +438,7 @@ class ProductVariationsListStream(SalesforceStream):
     count = 200
     records_jsonpath = "$.data[*]"
     parent_stream_type = ProductsDataApiStream
+    parallelization_limit = 25
 
     schema = th.PropertiesList(
         th.Property("product_id", th.StringType)

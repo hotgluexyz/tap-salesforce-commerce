@@ -2,8 +2,8 @@
 
 from typing import List
 
-from singer_sdk import Tap, Stream
-from singer_sdk import typing as th  # JSON schema typing helpers
+from tap_hotglue_sdk import Tap, Stream
+from tap_hotglue_sdk import typing as th  # JSON schema typing helpers
 
 # TODO: Import your custom stream types here:
 from tap_salesforce.streams import (

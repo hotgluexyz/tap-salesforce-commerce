@@ -2,7 +2,7 @@
 
 import datetime
 
-from singer_sdk.testing import get_standard_tap_tests
+from tap_hotglue_sdk.testing import get_standard_tap_tests
 
 from tap_salesforce.tap import TapSalesforce
 

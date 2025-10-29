@@ -3,12 +3,12 @@
 import requests
 from typing import Any, Dict, Optional, Iterable
 
-from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.helpers._typing import to_json_compatible
-from singer_sdk.helpers._state import write_starting_replication_value, STARTING_MARKER
-from singer_sdk.streams import RESTStream
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
-from singer_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
+from tap_hotglue_sdk.helpers.jsonpath import extract_jsonpath
+from tap_hotglue_sdk.helpers._typing import to_json_compatible
+from tap_hotglue_sdk.helpers._state import write_starting_replication_value, STARTING_MARKER
+from tap_hotglue_sdk.streams import RESTStream
+from tap_hotglue_sdk.exceptions import FatalAPIError, RetriableAPIError
+from tap_hotglue_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
