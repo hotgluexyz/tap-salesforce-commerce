@@ -227,8 +227,6 @@ class ProductsStream(SalesforceStream):
     parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
-    paralellization_limit = 10
-
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
@@ -438,7 +436,6 @@ class ProductVariationsListStream(SalesforceStream):
     count = 200
     records_jsonpath = "$.data[*]"
     parent_stream_type = ProductsDataApiStream
-    parallelization_limit = 25
 
     schema = th.PropertiesList(
         th.Property("product_id", th.StringType)

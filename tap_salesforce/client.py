@@ -55,6 +55,12 @@ class SalesforceStream(RESTStream):
     next_page_token_jsonpath = "$.next"
 
     @property
+    def parallelization_limit(self) -> int:
+        if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
+            return 25
+        return 1
+
+    @property
     @cached
     def authenticator(self) -> SalesForceAuth:
         """Return a new authenticator object."""
