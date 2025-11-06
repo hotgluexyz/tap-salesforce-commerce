@@ -3,12 +3,12 @@
 import requests
 from typing import Any, Dict, Optional, Iterable
 
-from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.helpers._typing import to_json_compatible
-from singer_sdk.helpers._state import write_starting_replication_value, STARTING_MARKER
-from singer_sdk.streams import RESTStream
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
-from singer_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
+from hotglue_tap_sdk.helpers.jsonpath import extract_jsonpath
+from hotglue_tap_sdk.helpers._typing import to_json_compatible
+from hotglue_tap_sdk.helpers._state import write_starting_replication_value, STARTING_MARKER
+from hotglue_tap_sdk.streams import RESTStream
+from hotglue_tap_sdk.exceptions import FatalAPIError, RetriableAPIError
+from hotglue_tap_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
@@ -53,6 +53,12 @@ class SalesforceStream(RESTStream):
 
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = "$.next"
+
+    @property
+    def parallelization_limit(self) -> int:
+        if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
+            return 25
+        return 1
 
     @property
     @cached
