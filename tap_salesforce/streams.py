@@ -1,14 +1,15 @@
 """Stream type classes for tap-salesforce."""
 
-from singer_sdk import typing as th
+from hotglue_tap_sdk import typing as th
 from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from simplejson.scanner import JSONDecodeError 
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from hotglue_tap_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
-from singer_sdk.helpers.jsonpath import extract_jsonpath
+from hotglue_tap_sdk.helpers.jsonpath import extract_jsonpath
 import copy
+import threading
 
 class InventoryListsStream(SalesforceStream):
     """Define custom stream."""
@@ -227,7 +228,7 @@ class ProductsStream(SalesforceStream):
     parent_stream_type = AllProductsIdsStream
     currencies = ["USD", "EUR", "GBP"]
     first_currency = "USD"
-
+    _currencies_lock = threading.Lock()  # Thread-safe lock for currencies access
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
@@ -284,13 +285,16 @@ class ProductsStream(SalesforceStream):
     ) -> Optional[Any]:
         # using to iterate through currencies to get all available prices
         previous_token = previous_token or 0
-        if previous_token < len(self.currencies) - 1:
-            self.first_currency = None
-            next_page_token = previous_token + 1
-            return next_page_token
-        
-        #initialize first curency for next product
-        self.first_currency = self.currencies[0]
+        with self._currencies_lock:
+            currencies_length = len(self.currencies)
+            if previous_token < currencies_length - 1:
+                self.first_currency = None
+                next_page_token = previous_token + 1
+                return next_page_token
+            
+            #initialize first curency for next product
+            if currencies_length > 0:
+                self.first_currency = self.currencies[0]
         return None
 
     def get_url_params(
@@ -301,7 +305,9 @@ class ProductsStream(SalesforceStream):
         if self.first_currency:
             params["currency"] = self.first_currency
         elif next_page_token:
-            params["currency"] = self.currencies[next_page_token]
+            with self._currencies_lock:
+                if next_page_token < len(self.currencies):
+                    params["currency"] = self.currencies[next_page_token]
         return params
     
     def parse_response(self, response: requests.Response):
@@ -329,7 +335,11 @@ class ProductsStream(SalesforceStream):
         if response.status_code == 400:
             if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
                 # TODO: should we be removing the currency here? I think so, to avoid repeated 400 errors
-                self.currencies.remove(res_json.get("fault", {}).get("arguments", {}).get("currency"))
+                currency_to_remove = res_json.get("fault", {}).get("arguments", {}).get("currency")
+                if currency_to_remove:
+                    with self._currencies_lock:
+                        if currency_to_remove in self.currencies:
+                            self.currencies.remove(currency_to_remove)
         elif 400 <= response.status_code < 500:  
             if res_json.get("fault", {}).get("type") != "ProductNotFoundException":
                 error_title = res_json.get("title", "")
