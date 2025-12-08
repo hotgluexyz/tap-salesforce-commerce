@@ -13,7 +13,7 @@ license = "Apache 2.0"
 python = "<3.11,>=3.7.1"
 requests = "^2.25.1"
 beautifulsoup4 = "^4.12.3"
-hotglue-tap-sdk = "1.0.0"
+hotglue-tap-sdk = { git = "https://github.com/hotgluexyz/HotglueTapSDK.git", branch = "feature/hgi-9219" }
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

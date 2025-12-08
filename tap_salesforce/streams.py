@@ -6,7 +6,7 @@ from tap_salesforce.client import SalesforceStream
 import requests
 from simplejson.scanner import JSONDecodeError 
 from hotglue_tap_sdk.exceptions import FatalAPIError, RetriableAPIError
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from hotglue_tap_sdk.helpers.jsonpath import extract_jsonpath
 import copy
 import threading
@@ -979,6 +979,7 @@ class OrdersStream(SalesforceStream):
     replication_key = "last_modified"
     records_jsonpath = "$.hits[*].data"
     rest_method = "POST"
+    end_date = datetime.now(timezone.utc)
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
@@ -1131,6 +1132,22 @@ class OrdersStream(SalesforceStream):
     ).to_dict()
 
 
+    def get_paging_windows(self, context):
+        start_date = self.start_date or self.get_starting_time(context)
+        end_date = self.end_date
+
+        # Split into 1 week intervals
+        intervals = []
+        current_date = start_date
+        while current_date < end_date:
+            intervals.append({
+                "window_start_date": current_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "window_end_date": (current_date + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            })
+            current_date += timedelta(days=7)
+        return intervals
+
+
     def prepare_request_payload(
         self, context: Optional[dict], next_page_token: Optional[Any]
     ) -> Optional[dict]:
@@ -1148,15 +1165,13 @@ class OrdersStream(SalesforceStream):
             }
         else:
             pagination = next_page_token
-            start_date = (self.start_date or self.get_starting_time(context)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            end_date = datetime.today().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             query = { 
                 "filtered_query": {
                     "filter": {
                         "range_filter": { 	
                             "field": "last_modified",
-                            "from": start_date,
-                            "to": end_date
+                            "from": context.get("window_start_date"),
+                            "to": context.get("window_end_date")
                         }
                     },
                     "query" : {
