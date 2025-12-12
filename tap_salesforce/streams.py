@@ -368,7 +368,6 @@ class ProductsDataApiStream(SalesforceStream):
         th.Property("ean", th.StringType),
         th.Property("id", th.StringType),
         th.Property("image_groups", th.CustomType({"type": ["array", "string"]})),
-        th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
         th.Property("long_description", th.CustomType({"type": ["object", "string"]})),
         th.Property("master", th.CustomType({"type": ["object", "string"]})),
         th.Property("min_order_quantity", th.NumberType),
