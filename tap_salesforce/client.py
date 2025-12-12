@@ -33,7 +33,7 @@ class SalesforceStream(RESTStream):
     last_refreshed = None
     params = {}
     product_ids = []
-    SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes"]
+    SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes", "product_availability"]
     max_dates = []
     start_date = None
     @property

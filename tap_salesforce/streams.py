@@ -1212,3 +1212,26 @@ class OrderNotesStream(SalesforceStream):
         th.Property("text", th.StringType),
         th.Property("order_no", th.StringType),
     ).to_dict()
+
+
+class ProductAvailabilityStream(SalesforceStream):
+
+    name = "product_availability"
+    path = "/products/{master_product_id}/availability"
+    primary_keys = ["id"]
+    parent_stream_type = ProductsDataApiStream
+    replication_key = None
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("inventory", th.CustomType({"type": ["object", "string"]})),
+        th.Property("long_description", th.StringType),
+        th.Property("min_order_quantity", th.NumberType),
+        th.Property("name", th.StringType),
+        th.Property("primary_category_id", th.StringType),
+        th.Property("short_description", th.StringType),
+        th.Property("step_quantity", th.NumberType),
+        th.Property("type", th.CustomType({"type": ["object", "string"]})),
+        th.Property("unit_quantity", th.IntegerType),
+    ).to_dict()
