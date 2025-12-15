@@ -979,7 +979,6 @@ class OrdersStream(SalesforceStream):
     replication_key = "last_modified"
     records_jsonpath = "$.hits[*].data"
     rest_method = "POST"
-    primary_keys = ["id"]
 
 
     schema = th.PropertiesList(
