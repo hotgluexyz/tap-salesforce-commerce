@@ -359,6 +359,7 @@ class ProductsDataApiStream(SalesforceStream):
     records_jsonpath = "$.hits[*]"
     rest_method = "POST"
     count = 200
+    primary_keys = ["id"]
 
     schema = th.PropertiesList(
         th.Property("_v", th.StringType),
@@ -446,7 +447,7 @@ class ProductVariationsListStream(SalesforceStream):
     count = 200
     records_jsonpath = "$.data[*]"
     parent_stream_type = ProductsDataApiStream
-
+    primary_keys = ["product_id"]
     schema = th.PropertiesList(
         th.Property("product_id", th.StringType)
     ).to_dict()
@@ -978,6 +979,8 @@ class OrdersStream(SalesforceStream):
     replication_key = "last_modified"
     records_jsonpath = "$.hits[*].data"
     rest_method = "POST"
+    primary_keys = ["id"]
+
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
@@ -1201,7 +1204,7 @@ class OrderNotesStream(SalesforceStream):
     path = "/orders/{order_no}/notes"
     records_jsonpath = "$.notes[*]"
     parent_stream_type = OrdersStream
-
+    primary_keys = ["id"]
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
         th.Property("created_by", th.StringType),
