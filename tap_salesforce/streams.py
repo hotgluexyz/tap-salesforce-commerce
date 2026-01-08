@@ -405,7 +405,9 @@ class ProductsDataApiStream(SalesforceStream):
         th.Property("c_width", th.StringType),
         th.Property("c_styleNumber", th.StringType),
         th.Property("c_tabDescription", th.StringType),
-        th.Property("c_tabDetails", th.StringType)
+        th.Property("c_tabDetails", th.StringType),
+        th.Property("online_flag", th.CustomType({"type": ["object", "string"]})),
+        th.Property("searchable", th.CustomType({"type": ["object", "string"]})),
     ).to_dict()
 
     def prepare_request_payload(self, context, next_page_token):
@@ -519,7 +521,9 @@ class ProductsVariantsDataApiStream(SalesforceStream):
         th.Property("c_styleNumber", th.StringType),
         th.Property("c_tabDescription", th.StringType),
         th.Property("c_tabDetails", th.StringType),
-        th.Property("master_product_id", th.StringType)
+        th.Property("master_product_id", th.StringType),
+        th.Property("online_flag", th.CustomType({"type": ["object", "string"]})),
+        th.Property("searchable", th.CustomType({"type": ["object", "string"]})),
     ).to_dict()
 
 
