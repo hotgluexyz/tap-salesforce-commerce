@@ -451,7 +451,8 @@ class ProductVariationsListStream(SalesforceStream):
     parent_stream_type = ProductsDataApiStream
     primary_keys = ["product_id"]
     schema = th.PropertiesList(
-        th.Property("product_id", th.StringType)
+        th.Property("product_id", th.StringType),
+        th.Property("master_product_id", th.StringType)
     ).to_dict()
 
     def get_child_context(self, record, context) -> dict:
