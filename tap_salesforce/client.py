@@ -249,7 +249,8 @@ class SalesforceStream(RESTStream):
         ):
             msg = self.response_error_message(response)
             count = self.config.get("order_page_size") if hasattr(self.config,"order_page_size") else self.count if hasattr(self,"count") else 200
-            self.count = int(count / 2)
+            if self.count > 4:
+                self.count = int(count / 2)
             raise RetriableAPIError(msg, response)
         try:
             res_json = response.json()
