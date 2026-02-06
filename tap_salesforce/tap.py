@@ -29,8 +29,8 @@ from tap_salesforce.streams import (
     ProductVariationsListStream,
     ProductsVariantsDataApiStream,
     ProductAvailabilityStream,
-    VariationGroupStream,
-    EnrichedProductVariationStream
+    MasterProductStream,
+    VariationGroupStream
 )
 
 STREAM_TYPES = [
@@ -56,8 +56,8 @@ STREAM_TYPES = [
     ProductVariationsListStream,
     ProductsVariantsDataApiStream,
     ProductAvailabilityStream,
-    VariationGroupStream,
-    EnrichedProductVariationStream
+    MasterProductStream,
+    VariationGroupStream
 ]
 
 

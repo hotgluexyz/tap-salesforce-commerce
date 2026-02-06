@@ -1242,10 +1242,10 @@ class ProductAvailabilityStream(SalesforceStream):
         th.Property("unit_quantity", th.IntegerType),
     ).to_dict()
 
-class VariationGroupStream(SalesforceStream):
+class MasterProductStream(SalesforceStream):
     """Define custom stream."""
 
-    name = "variant_groups"
+    name = "master_products"
     path = "/products/{master_product_id}"
     primary_keys = ["id"]
     parent_stream_type = ProductsDataApiStream
@@ -1291,21 +1291,25 @@ class VariationGroupStream(SalesforceStream):
             "master_product_id": context["master_product_id"]
         }
 
-class EnrichedProductVariationStream(SalesforceStream):
+class VariationGroupStream(SalesforceStream):
     """Define custom stream."""
 
-    name = "enriched_product_variations"
+    name = "variation_groups"
     path = "/products/{variation_group_product_id}"
     primary_keys = ["id"]
-    parent_stream_type = VariationGroupStream
+    parent_stream_type = MasterProductStream
     replication_key = None
     records_jsonpath = "$.[*]"
     expand = "all"
     select = "(**)"
 
+    # Used to go through mutliple variation group product ids for each master product record
     def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
+        # Get the base context
         variation_group_product_id_context = context.copy()
         variation_group_product_id_context.pop("variation_group_product_ids")
+
+        # Loop through each variation group by setting id in context. Yields record for generator for each id
         for variation_group_product_id in context["variation_group_product_ids"]:
             variation_group_product_id_context["variation_group_product_id"] = variation_group_product_id
             yield from super().get_records(variation_group_product_id_context)
