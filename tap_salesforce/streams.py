@@ -1319,7 +1319,7 @@ class VariationGroupStream(SalesforceStream):
         th.Property("id", th.StringType),
         th.Property("assigned_categories", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
         th.Property("master_product_id", th.StringType),
-        th.Property("resource_state", th.StringType),
+        th.Property("_resource_state", th.StringType),
         th.Property("classification_category", th.CustomType({"type": ["object", "string"]})),
         th.Property("creation_date", th.DateTimeType),
         th.Property("image", th.CustomType({"type": ["object", "string"]})),
