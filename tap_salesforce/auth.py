@@ -3,13 +3,14 @@
 
 from hotglue_singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
 import requests
-from hotglue_tap_sdk.helpers._util import utc_now
+from requests.exceptions import HTTPError
 from hotglue_singer_sdk.helpers._util import utc_now
 from typing import Optional
 
 import requests
 from hotglue_singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
 from hotglue_singer_sdk.streams import Stream as RESTStreamBase
+from hotglue_singer_sdk.tap_base import InvalidCredentialsError
 from datetime import datetime
 import base64
 from singer import utils
@@ -42,6 +43,12 @@ class SalesForceAuth(OAuthAuthenticator, metaclass=SingletonMeta):
         try:
             token_response.raise_for_status()
             self.logger.info("OAuth authorization attempt was successful.")
+        except HTTPError as ex:
+            if ex.response.status_code in [401, 403]:
+                raise InvalidCredentialsError(f"Authentication failed with response code {ex.response.status_code}: {ex.response.text}")
+            raise RuntimeError(
+                f"Failed OAuth login, response was '{token_response.json()}'. {ex}"
+            )
         except Exception as ex:
             raise RuntimeError(
                 f"Failed OAuth login, response was '{token_response.json()}'. {ex}"
@@ -84,8 +91,12 @@ class SalesForceUsernameAuth(SalesForceAuth):
     # Authentication and refresh
     def update_access_token(self) -> None:
         domain = self.config.get("sf_domain", self.config.get("domain"))
-        client_id = self.config["client_id"]
-        auth_str = f"{self.config['username']}:{self.config['password']}:{self.config['client_secret']}"
+        try:
+            client_id = self.config["client_id"]
+            auth_str = f"{self.config['username']}:{self.config['password']}:{self.config['client_secret']}"
+        except KeyError:
+            raise InvalidCredentialsError("Missing required credentials. Make sure you have the informed: username, password, client_id, client_secret")
+        
         auth_header = base64.b64encode(auth_str.encode("ascii")).decode("ascii")
         url = f"https://{domain}.dx.commercecloud.salesforce.com/dw/oauth2/access_token?client_id={client_id}"
         if self.config.get("full_domain"):
@@ -102,6 +113,8 @@ class SalesForceUsernameAuth(SalesForceAuth):
                 "grant_type": "urn:demandware:params:oauth:grant-type:client-id:dwsid:dwsecuretoken"
             },
         )
+        if r.status_code in [401, 403]:
+            raise InvalidCredentialsError(f"Authentication failed with response code {r.status_code}: {r.text}")
         auth_payload = r.json()
         self.access_token = auth_payload["access_token"]
 
