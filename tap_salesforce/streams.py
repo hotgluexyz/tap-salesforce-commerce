@@ -1251,8 +1251,8 @@ class VariationGroupStream(SalesforceStream):
     parent_stream_type = ProductsDataApiStream
     replication_key = None
     records_jsonpath = "$.[*]"
-    expand = "variations"
-    select = "(id,variation_groups)"
+    expand = "all"
+    select = "(**)"
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
