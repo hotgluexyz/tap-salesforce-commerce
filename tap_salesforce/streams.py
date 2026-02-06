@@ -1241,3 +1241,119 @@ class ProductAvailabilityStream(SalesforceStream):
         th.Property("type", th.CustomType({"type": ["object", "string"]})),
         th.Property("unit_quantity", th.IntegerType),
     ).to_dict()
+
+class MasterProductStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "master_products"
+    path = "/products/{master_product_id}"
+    primary_keys = ["id"]
+    parent_stream_type = ProductsDataApiStream
+    replication_key = None
+    records_jsonpath = "$.[*]"
+    expand = "all"
+    select = "(**)"
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("default_variant_id", th.StringType),
+        th.Property("image", th.CustomType({"type": ["object", "string"]})),
+        th.Property("image_groups", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("last_modified", th.DateTimeType), 
+        th.Property("link", th.StringType),
+        th.Property("long_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("master", th.CustomType({"type": ["object", "string"]})),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online_flag", th.CustomType({"type": ["object", "string"]})),
+        th.Property("owning_catalog_id", th.StringType),
+        th.Property("owning_catalog_name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("page_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("page_title", th.CustomType({"type": ["object", "string"]})),
+        th.Property("searchable", th.CustomType({"type": ["object", "string"]})),
+        th.Property("short_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("tax_class_id", th.StringType),
+        th.Property("type", th.CustomType({"type": ["object", "string"]})),
+        th.Property("unit_quantity", th.NumberType),
+        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
+        th.Property("valid_to", th.CustomType({"type": ["object", "string"]})),
+        th.Property("variants", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("variation_attributes", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
+        th.Property("variation_groups", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("c_sizeGuideCode", th.StringType),
+    ).to_dict()
+
+    def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
+        return {
+            "variation_group_product_ids": [variation_group.get("product_id") for variation_group in (record.get("variation_groups") or [])],
+            "master_product_id": context.get("master_product_id")
+        }
+
+class VariationGroupStream(SalesforceStream):
+    """Define custom stream."""
+
+    name = "variation_groups"
+    path = "/products/{variation_group_product_id}"
+    primary_keys = ["id"]
+    parent_stream_type = MasterProductStream
+    replication_key = None
+    records_jsonpath = "$.[*]"
+    expand = "all"
+    select = "(**)"
+
+    # Used to go through mutliple variation group product ids for each master product record
+    def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
+        # Get the base context
+        variation_group_product_id_context = context.copy()
+        variation_group_product_id_context.pop("variation_group_product_ids", None)
+
+        # Loop through each variation group by setting id in context. Yields record for generator for each id
+        for variation_group_product_id in (context.get("variation_group_product_ids") or []):
+            variation_group_product_id_context["variation_group_product_id"] = variation_group_product_id
+            yield from super().get_records(variation_group_product_id_context)
+
+    schema = th.PropertiesList(
+        th.Property("_type", th.StringType),
+        th.Property("id", th.StringType),
+        th.Property("assigned_categories", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("master_product_id", th.StringType),
+        th.Property("_resource_state", th.StringType),
+        th.Property("classification_category", th.CustomType({"type": ["object", "string"]})),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("image", th.CustomType({"type": ["object", "string"]})),
+        th.Property("image_groups", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("last_modified", th.DateTimeType),
+        th.Property("link", th.StringType),
+        th.Property("long_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("master", th.CustomType({"type": ["object", "string"]})),
+        th.Property("name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("online_flag", th.CustomType({"type": ["object", "string"]})),
+        th.Property("owning_catalog_id", th.StringType),   
+        th.Property("owning_catalog_name", th.CustomType({"type": ["object", "string"]})),
+        th.Property("page_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("page_title", th.CustomType({"type": ["object", "string"]})),
+        th.Property("searchable", th.CustomType({"type": ["object", "string"]})),
+        th.Property("short_description", th.CustomType({"type": ["object", "string"]})),
+        th.Property("tax_class_id", th.StringType),
+        th.Property("type", th.CustomType({"type": ["object", "string"]})),
+        th.Property("unit_quantity", th.NumberType),
+        th.Property("valid_from", th.CustomType({"type": ["object", "string"]})),
+        th.Property("valid_to", th.CustomType({"type": ["object", "string"]})),
+        th.Property("variants", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("variation_attributes", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
+        th.Property("variation_groups", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("c_color", th.StringType),
+        th.Property("c_refinementColor", th.StringType),
+        th.Property("c_size", th.StringType),
+        th.Property("c_width", th.StringType),
+        th.Property("c_styleNumber", th.StringType),
+        th.Property("c_composition", th.CustomType({"type": ["object", "string"]})),
+        th.Property("c_productCare", th.CustomType({"type": ["object", "string"]})),
+        th.Property("c_splittedComposition", th.CustomType({"type": ["object", "string"]})),
+        th.Property("c_availableForInStorePickup", th.BooleanType),
+    ).to_dict()
+
+    
