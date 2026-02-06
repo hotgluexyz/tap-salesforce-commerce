@@ -80,5 +80,4 @@ class TapSalesforce(Tap):
 
 
 if __name__ == "__main__":
-    raise Exception("Some exception 123")
     TapSalesforce.cli()
