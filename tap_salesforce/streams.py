@@ -1287,8 +1287,8 @@ class MasterProductStream(SalesforceStream):
 
     def get_child_context(self, record: dict, context: Optional[dict]) -> dict:
         return {
-            "variation_group_product_ids": [variation_group["product_id"] for variation_group in record["variation_groups"]] if "variation_groups" in record else [],
-            "master_product_id": context["master_product_id"]
+            "variation_group_product_ids": [variation_group.get("product_id") for variation_group in (record.get("variation_groups") or [])],
+            "master_product_id": context.get("master_product_id")
         }
 
 class VariationGroupStream(SalesforceStream):
@@ -1307,10 +1307,10 @@ class VariationGroupStream(SalesforceStream):
     def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
         # Get the base context
         variation_group_product_id_context = context.copy()
-        variation_group_product_id_context.pop("variation_group_product_ids")
+        variation_group_product_id_context.pop("variation_group_product_ids", None)
 
         # Loop through each variation group by setting id in context. Yields record for generator for each id
-        for variation_group_product_id in context["variation_group_product_ids"]:
+        for variation_group_product_id in (context.get("variation_group_product_ids") or []):
             variation_group_product_id_context["variation_group_product_id"] = variation_group_product_id
             yield from super().get_records(variation_group_product_id_context)
 
