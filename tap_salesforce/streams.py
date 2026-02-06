@@ -466,34 +466,6 @@ class ProductVariationsListStream(SalesforceStream):
         # parse_response as usual
         yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
-    def prepare_request_payload(self, context, next_page_token):
-        # get all products that are master products, then request the rest of the products as their variations
-        start_date = self.get_starting_time(context)
-        return {
-            "query": {
-                "filtered_query": {
-                    "filter": {
-                        "range_filter": {
-                            "field": "last_modified",
-                            "from": start_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-                        }
-                    },
-                    "query": {
-                        "term_query": {
-                            "fields" : ["type"],
-                            "operator":"is",
-                            "values":["master"]
-                        }
-                    }
-                }
-            },
-            "expand": [
-                "all"
-            ],
-            "select": "(**)",
-            "count": self.count,
-            "start": next_page_token
-        }
 
 class ProductsVariantsDataApiStream(SalesforceStream):
     """Define product variants data stream."""
