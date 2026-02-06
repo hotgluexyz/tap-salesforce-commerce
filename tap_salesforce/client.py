@@ -249,7 +249,10 @@ class SalesforceStream(RESTStream):
         ):
             msg = self.response_error_message(response)
             count = self.config.get("order_page_size") if hasattr(self.config,"order_page_size") else self.count if hasattr(self,"count") else 200
-            self.count = int(count / 2)
+            if count > 40:
+                self.count = count - 20
+                self.logger.debug(f"Hit 50x error, automatically reducing count from {count} to {self.count}")
+
             raise RetriableAPIError(msg, response)
         try:
             res_json = response.json()
@@ -324,4 +327,3 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
-
