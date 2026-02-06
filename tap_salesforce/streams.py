@@ -1,13 +1,13 @@
 """Stream type classes for tap-salesforce."""
 
-from hotglue_tap_sdk import typing as th
+from hotglue_singer_sdk import typing as th
 from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
 from simplejson.scanner import JSONDecodeError 
-from hotglue_tap_sdk.exceptions import FatalAPIError, RetriableAPIError
+from hotglue_singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
-from hotglue_tap_sdk.helpers.jsonpath import extract_jsonpath
+from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
 import copy
 import threading
 

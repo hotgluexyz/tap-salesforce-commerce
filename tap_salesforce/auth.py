@@ -1,14 +1,15 @@
 """TapDynamicsFinance Authentication."""
 
 
-from hotglue_tap_sdk.authenticators import OAuthAuthenticator, SingletonMeta
+from hotglue_singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
 import requests
 from hotglue_tap_sdk.helpers._util import utc_now
+from hotglue_singer_sdk.helpers._util import utc_now
 from typing import Optional
 
 import requests
-from hotglue_tap_sdk.authenticators import OAuthAuthenticator, SingletonMeta
-from hotglue_tap_sdk.streams import Stream as RESTStreamBase
+from hotglue_singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
+from hotglue_singer_sdk.streams import Stream as RESTStreamBase
 from datetime import datetime
 import base64
 from singer import utils
