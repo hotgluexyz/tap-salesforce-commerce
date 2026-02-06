@@ -466,7 +466,6 @@ class ProductVariationsListStream(SalesforceStream):
         # parse_response as usual
         yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
-
 class ProductsVariantsDataApiStream(SalesforceStream):
     """Define product variants data stream."""
 

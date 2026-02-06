@@ -327,3 +327,4 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
+
