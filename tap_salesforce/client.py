@@ -27,12 +27,12 @@ def extract_text_from_html(content: str) -> str:
 class SalesforceStream(RESTStream):
     """Salesforce stream class."""
 
-    api_version = "v23_1"
+    api_version = "v25_6"
     access_token = None
     expires_in = None
     last_refreshed = None
     params = {}
-    product_ids = []
+    product_ids = [{"product_id": "100246_010100000000_marfisa"}]
     SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes", "product_availability"]
     max_dates = []
     start_date = None
@@ -179,7 +179,7 @@ class SalesforceStream(RESTStream):
             return None
 
         res_json = response.json()
-        if "next" in res_json and res_json["next"]:
+        if False and "next" in res_json and res_json["next"]:
             previous_token = previous_token or 0
             res_json = response.json()
             count = res_json["count"]
