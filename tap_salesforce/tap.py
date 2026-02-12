@@ -62,7 +62,7 @@ class TapSalesforce(Tap):
     """Salesforce tap class."""
 
     name = "tap-salesforce"
-    alerting_level = AlertingLevel.ERROR
+    alerting_level = AlertingLevel.WARNING
 
     config_jsonschema = th.PropertiesList(
         th.Property(
