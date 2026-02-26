@@ -330,7 +330,7 @@ class ProductsStream(SalesforceStream):
                 f"Received non-JSON response from {self.path}. "
                 f"Content preview: {response.text}"
             )
-            raise FatalAPIError(msg)
+            raise RetriableAPIError(msg, response)
         
         if response.status_code == 400:
             if res_json.get("fault", {}).get("type") == "UnsupportedCurrencyException":
