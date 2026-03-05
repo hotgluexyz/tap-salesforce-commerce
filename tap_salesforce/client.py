@@ -156,6 +156,7 @@ class SalesforceStream(RESTStream):
             write_starting_replication_value(state, value)
 
     def get_records(self, context: Optional[dict]) -> Iterable[Dict[str, Any]]:
+        raise Exception("test")
         if self.name in self.SITE_SPECIFIC_STREAMS and "," in self.config.get("site_id", ""):
             site_ids = self.config.get("site_id").replace(" ", "").split(",")
             for site_id in site_ids:
