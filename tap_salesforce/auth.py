@@ -10,7 +10,7 @@ from typing import Optional
 import requests
 from hotglue_singer_sdk.authenticators import OAuthAuthenticator, SingletonMeta
 from hotglue_singer_sdk.streams import Stream as RESTStreamBase
-from hotglue_singer_sdk.tap_base import InvalidCredentialsError
+from hotglue_etl_exceptions import InvalidCredentialsError
 from datetime import datetime
 import base64
 from singer import utils
