@@ -9,6 +9,7 @@ from hotglue_singer_sdk.helpers._state import write_starting_replication_value, 
 from hotglue_singer_sdk.streams import RESTStream
 from hotglue_singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from hotglue_singer_sdk.streams.core import REPLICATION_INCREMENTAL, REPLICATION_LOG_BASED
+from hotglue_etl_exceptions import InvalidCredentialsError
 from memoization import cached
 from tap_salesforce.auth import SalesForceAuth, SalesForceUsernameAuth
 from pendulum import parse
@@ -254,12 +255,16 @@ class SalesforceStream(RESTStream):
                 self.logger.debug(f"Hit 50x error, automatically reducing count from {count} to {self.count}")
 
             raise RetriableAPIError(msg, response)
+        res_json = None
         try:
             res_json = response.json()
         except Exception as exc:
             resp_text = extract_text_from_html(response.text)
             error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
             raise RetriableAPIError(error_message) from None
+
+        if response.status_code == 403 and res_json and res_json.get("fault", {}).get("type") == "ClientAccessForbiddenException":
+            raise InvalidCredentialsError(f"Authentication failed with response code {response.status_code}: {res_json.get('fault', {}).get('message')}")
         if (
             400 <= response.status_code < 500
             and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
@@ -327,4 +332,3 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
-
