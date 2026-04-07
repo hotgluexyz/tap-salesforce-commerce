@@ -260,7 +260,7 @@ class SalesforceStream(RESTStream):
             res_json = response.json()
         except Exception as exc:
             resp_text = extract_text_from_html(response.text)
-            error_message = f"Error decoding JSON response. Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
+            error_message = f"Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
             raise RetriableAPIError(error_message) from None
 
         if response.status_code == 403 and res_json and res_json.get("fault", {}).get("type") == "ClientAccessForbiddenException":
@@ -291,7 +291,7 @@ class SalesforceStream(RESTStream):
 
         singer.write_message(singer.StateMessage(value=tap_state))
     
-    @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException, RetriableAPIError), max_tries=10)
+    @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException, RetriableAPIError), max_tries=2)
     def _make_request(self, context: Optional[dict], next_page_token: Optional[Any]) -> requests.Response:
         prepared_request = self.prepare_request(
             context, next_page_token=next_page_token
