@@ -6,7 +6,7 @@ import requests
 
 from hotglue_singer_sdk import Tap, Stream
 from hotglue_singer_sdk import typing as th
-from hotglue_singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from hotglue_singer_sdk.exceptions import RetriableAPIError
 from hotglue_singer_sdk.helpers.capabilities import AlertingLevel
 
 # TODO: Import your custom stream types here:
@@ -71,7 +71,6 @@ class TapSalesforce(Tap):
     name = "tap-salesforce"
     alerting_level = AlertingLevel.ERROR
     exception_alerting_level_map = {
-        FatalAPIError: AlertingLevel.NONE,
         RetriableAPIError: AlertingLevel.NONE,
         requests.exceptions.RequestException: AlertingLevel.NONE,
     }
