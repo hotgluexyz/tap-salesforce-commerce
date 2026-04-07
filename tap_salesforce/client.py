@@ -291,7 +291,7 @@ class SalesforceStream(RESTStream):
 
         singer.write_message(singer.StateMessage(value=tap_state))
     
-    @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException, RetriableAPIError), max_tries=2)
+    @backoff.on_exception(backoff.expo, (requests.exceptions.RequestException, RetriableAPIError), max_tries=10)
     def _make_request(self, context: Optional[dict], next_page_token: Optional[Any]) -> requests.Response:
         prepared_request = self.prepare_request(
             context, next_page_token=next_page_token
