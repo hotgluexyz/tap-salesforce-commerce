@@ -283,6 +283,8 @@ class ProductsStream(SalesforceStream):
     def get_next_page_token(
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
+        if response.status_code == 500:
+            return None
         # using to iterate through currencies to get all available prices
         previous_token = previous_token or 0
         with self._currencies_lock:
@@ -311,14 +313,21 @@ class ProductsStream(SalesforceStream):
         return params
     
     def parse_response(self, response: requests.Response):
-        if response.status_code not in [400]:
+        if response.status_code not in [400, 500]:
             return super().parse_response(response)
         return []
     
     def validate_response(self, response: requests.Response) -> None:
-        if (
-            response.status_code in self.extra_retry_statuses
-            or 500 <= response.status_code < 600):
+        if response.status_code in self.extra_retry_statuses:
+            msg = self.response_error_message(response)
+            raise RetriableAPIError(msg, response)
+
+        if 500 <= response.status_code < 600:
+            if response.status_code == 500:
+                self.logger.warning(
+                    f"{self.response_error_message(response)}, skipping product."
+                )
+                return
             msg = self.response_error_message(response)
             raise RetriableAPIError(msg, response)
 
