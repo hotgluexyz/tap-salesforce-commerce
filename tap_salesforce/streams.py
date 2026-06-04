@@ -283,8 +283,6 @@ class ProductsStream(SalesforceStream):
     def get_next_page_token(
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
-        if response.status_code == 500:
-            return None
         # using to iterate through currencies to get all available prices
         previous_token = previous_token or 0
         with self._currencies_lock:
