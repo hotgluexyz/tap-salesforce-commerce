@@ -2,6 +2,8 @@
 
 import datetime
 
+from hotglue_etl_exceptions import InvalidCredentialsError
+from hotglue_singer_sdk.helpers.capabilities import AlertingLevel
 from hotglue_singer_sdk.testing import get_standard_tap_tests
 
 from tap_salesforce.tap import TapSalesforce
@@ -20,4 +22,9 @@ def test_standard_tap_tests():
         test()
 
 
-# TODO: Create additional tests as appropriate for your tap.
+def test_invalid_credentials_error_does_not_alert():
+    """Invalid credentials errors should not trigger connector alerting."""
+    assert (
+        TapSalesforce.exception_alerting_level_map[InvalidCredentialsError]
+        == AlertingLevel.NONE
+    )
