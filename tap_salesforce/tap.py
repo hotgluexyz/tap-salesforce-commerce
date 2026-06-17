@@ -8,6 +8,7 @@ from hotglue_singer_sdk import Tap, Stream
 from hotglue_singer_sdk import typing as th
 from hotglue_singer_sdk.exceptions import RetriableAPIError
 from hotglue_singer_sdk.helpers.capabilities import AlertingLevel
+from hotglue_etl_exceptions import InvalidCredentialsError
 
 # TODO: Import your custom stream types here:
 from tap_salesforce.streams import (
@@ -73,6 +74,7 @@ class TapSalesforce(Tap):
     exception_alerting_level_map = {
         RetriableAPIError: AlertingLevel.NONE,
         requests.exceptions.RequestException: AlertingLevel.NONE,
+        InvalidCredentialsError: AlertingLevel.NONE,
     }
 
     config_jsonschema = th.PropertiesList(
