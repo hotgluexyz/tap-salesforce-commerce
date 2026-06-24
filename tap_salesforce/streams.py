@@ -442,8 +442,7 @@ class ProductsDataApiStream(SalesforceStream):
                 }
             },
             "expand": [
-                "all",
-                "categories"
+                "all"
             ],
             "select": "(**)",
             "count": self.count,
