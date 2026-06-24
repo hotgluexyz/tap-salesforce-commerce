@@ -390,7 +390,7 @@ class ProductsDataApiStream(SalesforceStream):
         th.Property("price", th.NumberType),
         th.Property("price_per_unit", th.NumberType),
         th.Property("prices", th.CustomType({"type": ["object", "string"]})),
-        th.Property("primary_category_id", th.StringType),
+        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
         th.Property("product_promotions", th.CustomType({"type": ["array", "string"]})),
         th.Property("short_description", th.CustomType({"type": ["object", "string"]})),
         th.Property("step_quantity", th.NumberType),
@@ -442,7 +442,8 @@ class ProductsDataApiStream(SalesforceStream):
                 }
             },
             "expand": [
-                "all"
+                "all",
+                "categories"
             ],
             "select": "(**)",
             "count": self.count,
