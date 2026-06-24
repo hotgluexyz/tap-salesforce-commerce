@@ -193,7 +193,7 @@ class SalesforceStream(RESTStream):
                 self.name in pagination_limit_streams
                 and self.replication_key
                 and next_page_token is not None
-                and next_page_token + page_size > pagination_limit
+                and next_page_token + page_size >= pagination_limit
             ):
                 
                 max_date = self.stream_state.get("progress_markers", {}).get(
