@@ -188,7 +188,7 @@ class SalesforceStream(RESTStream):
             # to filter and restart pagination from 0
             pagination_limit_streams = ["orders"] #it seems that this is the only endpoint that has this limit so far.
             pagination_limit = 10000
-            page_size = self.config.get("order_page_size", 100)
+            page_size = self.config.get("order_page_size", 200)
             if (
                 self.name in pagination_limit_streams
                 and self.replication_key
