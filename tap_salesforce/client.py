@@ -1,6 +1,7 @@
 """REST client handling, including SalesforceStream base class."""
 
 import requests
+from requests.adapters import HTTPAdapter
 from typing import Any, Dict, Optional, Iterable
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -17,6 +18,10 @@ from bs4 import BeautifulSoup
 import copy
 from tap_salesforce.utils import cover_access_token
 import singer
+
+CHILD_STREAM_PARALLELIZATION = 25
+
+
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
     text = '\n'.join(soup.stripped_strings)
@@ -56,8 +61,20 @@ class SalesforceStream(RESTStream):
     @property
     def parallelization_limit(self) -> int:
         if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return 25
+            return CHILD_STREAM_PARALLELIZATION
         return 1
+
+    @property
+    def requests_session(self) -> requests.Session:
+        if not self._requests_session:
+            self._requests_session = requests.Session()
+            adapter = HTTPAdapter(
+                pool_connections=CHILD_STREAM_PARALLELIZATION,
+                pool_maxsize=CHILD_STREAM_PARALLELIZATION,
+            )
+            self._requests_session.mount("https://", adapter)
+            self._requests_session.mount("http://", adapter)
+        return self._requests_session
 
     @property
     @cached
