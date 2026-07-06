@@ -1,6 +1,7 @@
 """REST client handling, including SalesforceStream base class."""
 
 import requests
+from requests.adapters import HTTPAdapter
 from typing import Any, Dict, Optional, Iterable
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -17,6 +18,10 @@ from bs4 import BeautifulSoup
 import copy
 from tap_salesforce.utils import cover_access_token
 import singer
+
+CHILD_STREAM_PARALLELIZATION = 25
+
+
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
     text = '\n'.join(soup.stripped_strings)
@@ -56,8 +61,20 @@ class SalesforceStream(RESTStream):
     @property
     def parallelization_limit(self) -> int:
         if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return 25
+            return CHILD_STREAM_PARALLELIZATION
         return 1
+
+    @property
+    def requests_session(self) -> requests.Session:
+        if not self._requests_session:
+            self._requests_session = requests.Session()
+            adapter = HTTPAdapter(
+                pool_connections=CHILD_STREAM_PARALLELIZATION,
+                pool_maxsize=CHILD_STREAM_PARALLELIZATION,
+            )
+            self._requests_session.mount("https://", adapter)
+            self._requests_session.mount("http://", adapter)
+        return self._requests_session
 
     @property
     @cached
@@ -247,6 +264,12 @@ class SalesforceStream(RESTStream):
             params["client_id"] = self.config.get("client_id")
         return params
 
+    def _invalidate_access_token(self) -> None:
+        """Force the shared authenticator to fetch a new token on the next request."""
+        authenticator = self.authenticator
+        authenticator.last_refreshed = None
+        authenticator.access_token = None
+
     def validate_response(self, response: requests.Response) -> None:
         if (
             response.status_code in self.extra_retry_statuses
@@ -263,12 +286,24 @@ class SalesforceStream(RESTStream):
         try:
             res_json = response.json()
         except Exception as exc:
+            if response.status_code == 401:
+                self._invalidate_access_token()
+                resp_text = cover_access_token(response.text)
+                error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {resp_text}"
+                self.logger.warning("Access token expired or invalid; refreshing and retrying.")
+                raise RetriableAPIError(error_message, response) from None
             resp_text = extract_text_from_html(response.text)
             error_message = f"Status:{response.status_code} for url:{response.request.url} with response:\n{resp_text}\nException [{type(exc)}]: {exc}"
             raise RetriableAPIError(error_message) from None
 
         if response.status_code == 403 and res_json and res_json.get("fault", {}).get("type") == "ClientAccessForbiddenException":
             raise InvalidCredentialsError(f"Authentication failed with response code {response.status_code}: {res_json.get('fault', {}).get('message')}")
+        if response.status_code == 401 or res_json.get("fault", {}).get("type") == "InvalidAccessTokenException":
+            self._invalidate_access_token()
+            resp_text = cover_access_token(response.text)
+            error_message = f"Status:{response.status_code} for url:{response.request.url} with response: {resp_text}"
+            self.logger.warning("Access token expired or invalid; refreshing and retrying.")
+            raise RetriableAPIError(error_message, response)
         if (
             400 <= response.status_code < 500
             and res_json.get("fault", {}).get("type") != "ProductNotFoundException"
