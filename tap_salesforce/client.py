@@ -36,7 +36,7 @@ class SalesforceStream(RESTStream):
     SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes", "product_availability"]
     max_dates = []
     start_date = None
-    CONNECTION_POOL_SIZE = 5
+    CONNECTION_POOL_SIZE = 1
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
@@ -58,7 +58,7 @@ class SalesforceStream(RESTStream):
     @property
     def parallelization_limit(self) -> int:
         if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return 5
+            return 1
         return 1
 
     @property
