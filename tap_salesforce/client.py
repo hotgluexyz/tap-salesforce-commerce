@@ -1,6 +1,7 @@
 """REST client handling, including SalesforceStream base class."""
 
 import requests
+from requests.adapters import HTTPAdapter
 from typing import Any, Dict, Optional, Iterable
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -35,6 +36,7 @@ class SalesforceStream(RESTStream):
     SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes", "product_availability"]
     max_dates = []
     start_date = None
+    CONNECTION_POOL_SIZE = 5
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
@@ -56,8 +58,23 @@ class SalesforceStream(RESTStream):
     @property
     def parallelization_limit(self) -> int:
         if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return 25
+            return 5
         return 1
+
+    @property
+    def requests_session(self) -> requests.Session:
+        """Return a requests session with a bounded connection pool."""
+        if not self._requests_session:
+            self._requests_session = requests.Session()
+        if not getattr(self._requests_session, "_pool_configured", False):
+            adapter = HTTPAdapter(
+                pool_connections=self.CONNECTION_POOL_SIZE,
+                pool_maxsize=self.CONNECTION_POOL_SIZE,
+            )
+            self._requests_session.mount("http://", adapter)
+            self._requests_session.mount("https://", adapter)
+            self._requests_session._pool_configured = True
+        return self._requests_session
 
     @property
     @cached
