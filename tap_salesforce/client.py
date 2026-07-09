@@ -19,8 +19,6 @@ import copy
 from tap_salesforce.utils import cover_access_token
 import singer
 
-CHILD_STREAM_PARALLELIZATION = 25
-
 
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
@@ -113,18 +111,6 @@ class SalesforceStream(RESTStream):
             self._requests_session.mount("http://", adapter)
             self._requests_session.mount("https://", adapter)
             self._requests_session._pool_configured = True
-        return self._requests_session
-
-    @property
-    def requests_session(self) -> requests.Session:
-        if not self._requests_session:
-            self._requests_session = requests.Session()
-            adapter = HTTPAdapter(
-                pool_connections=CHILD_STREAM_PARALLELIZATION,
-                pool_maxsize=CHILD_STREAM_PARALLELIZATION,
-            )
-            self._requests_session.mount("https://", adapter)
-            self._requests_session.mount("http://", adapter)
         return self._requests_session
 
     @property
