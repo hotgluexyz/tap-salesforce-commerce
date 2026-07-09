@@ -85,6 +85,14 @@ class TapSalesforce(Tap):
         th.Property("site_id", th.StringType, required=True),
         th.Property("client_id", th.StringType, required=True),
         th.Property("client_secret", th.StringType, required=True),
+        th.Property(
+            "page_size",
+            th.IntegerType,
+            description=(
+                "Number of records to fetch per API request (OCAPI count parameter). "
+                "Defaults to 200."
+            ),
+        ),
     ).to_dict()
 
     def discover_streams(self) -> List[Stream]:
