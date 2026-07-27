@@ -20,8 +20,6 @@ import copy
 from tap_salesforce.utils import cover_access_token
 import singer
 
-CHILD_STREAM_PARALLELIZATION = 25
-
 
 def extract_text_from_html(content: str) -> str:
     soup = BeautifulSoup(content, 'html.parser')
@@ -32,6 +30,7 @@ def extract_text_from_html(content: str) -> str:
 class SalesforceStream(RESTStream):
     """Salesforce stream class."""
 
+    DEFAULT_PAGE_SIZE = 200
     api_version = "v23_1"
     access_token = None
     expires_in = None
@@ -41,6 +40,7 @@ class SalesforceStream(RESTStream):
     SITE_SPECIFIC_STREAMS = ["products", "product_variations", "prices", "orders", "all_orders", "products_search", "order_notes", "product_availability"]
     max_dates = []
     start_date = None
+    CONNECTION_POOL_SIZE = 5
     @property
     def url_base(self) -> str:
         """Return the API URL root, configurable via tap settings."""
@@ -59,6 +59,30 @@ class SalesforceStream(RESTStream):
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = "$.next"
 
+    def get_page_size(self) -> Optional[int]:
+        """Return effective page size from override, config, or default."""
+        if getattr(self, "name", None) == "orders":
+            return int(
+                getattr(self, "_page_size_override", None)
+                or self.config.get("order_page_size")
+                or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
+            )
+        if hasattr(self, "_page_size_override") or "count" in type(self).__dict__:
+            return int(
+                getattr(self, "_page_size_override", None)
+                or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
+            )
+        return None
+
+    def reduce_page_size_on_error(self) -> None:
+        """Lower page size after a retriable error; no-op when already at minimum."""
+        count = self.get_page_size() or self.DEFAULT_PAGE_SIZE
+        if count > 40:
+            reduced = count - 20
+            self._page_size_override = reduced
+            self.logger.debug(
+                f"Hit 50x error, automatically reducing count from {count} to {reduced}"
+            )
     @staticmethod
     def _url_encode(val: Any) -> str:
         """Encode path params so OCAPI reserved chars like () , are escaped."""
@@ -66,20 +90,21 @@ class SalesforceStream(RESTStream):
 
     @property
     def parallelization_limit(self) -> int:
-        if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return CHILD_STREAM_PARALLELIZATION
-        return 1
+        return self.CONNECTION_POOL_SIZE
 
     @property
     def requests_session(self) -> requests.Session:
+        """Return a requests session with a bounded connection pool."""
         if not self._requests_session:
             self._requests_session = requests.Session()
+        if not getattr(self._requests_session, "_pool_configured", False):
             adapter = HTTPAdapter(
-                pool_connections=CHILD_STREAM_PARALLELIZATION,
-                pool_maxsize=CHILD_STREAM_PARALLELIZATION,
+                pool_connections=self.CONNECTION_POOL_SIZE,
+                pool_maxsize=self.CONNECTION_POOL_SIZE,
             )
-            self._requests_session.mount("https://", adapter)
             self._requests_session.mount("http://", adapter)
+            self._requests_session.mount("https://", adapter)
+            self._requests_session._pool_configured = True
         return self._requests_session
 
     @property
@@ -211,7 +236,7 @@ class SalesforceStream(RESTStream):
             # to filter and restart pagination from 0
             pagination_limit_streams = ["orders"] #it seems that this is the only endpoint that has this limit so far.
             pagination_limit = 10000
-            page_size = self.config.get("order_page_size", 200)
+            page_size = self.get_page_size()
             if (
                 self.name in pagination_limit_streams
                 and self.replication_key
@@ -263,8 +288,9 @@ class SalesforceStream(RESTStream):
             params["expand"] = self.expand
         if hasattr(self,"include_all"):
             params["include_all"] = self.include_all
-        if hasattr(self,"count"):
-            params["count"] = self.count
+        page_size = self.get_page_size()
+        if page_size is not None:
+            params["count"] = page_size
         if self.name == "products_search":
             params["refine"] = f"cgid={context.get('root_category')}"
             params["client_id"] = self.config.get("client_id")
@@ -282,10 +308,7 @@ class SalesforceStream(RESTStream):
             or 500 <= response.status_code < 600
         ):
             msg = self.response_error_message(response)
-            count = self.config.get("order_page_size") if hasattr(self.config,"order_page_size") else self.count if hasattr(self,"count") else 200
-            if count > 40:
-                self.count = count - 20
-                self.logger.debug(f"Hit 50x error, automatically reducing count from {count} to {self.count}")
+            self.reduce_page_size_on_error()
 
             raise RetriableAPIError(msg, response)
         res_json = None

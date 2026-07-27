@@ -445,7 +445,7 @@ class ProductsDataApiStream(SalesforceStream):
                 "all"
             ],
             "select": "(**)",
-            "count": self.count,
+            "count": self.get_page_size(),
             "start": next_page_token
         }
     
@@ -1182,9 +1182,8 @@ class OrdersStream(SalesforceStream):
                 }
             }
 
-        order_page_size = self.count if hasattr(self,"count") else self.config.get("order_page_size", 200) 
-        payload = { 
-            "count": int(order_page_size),
+        payload = {
+            "count": self.get_page_size(),
             "query" : query,
             "select" : "(**)",
             "sorts" : [{"field":"last_modified", "sort_order":"asc"}],
