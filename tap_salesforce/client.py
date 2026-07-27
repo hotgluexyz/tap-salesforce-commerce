@@ -2,6 +2,7 @@
 
 import requests
 from typing import Any, Dict, Optional, Iterable
+from urllib.parse import quote
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
 from hotglue_singer_sdk.helpers._typing import to_json_compatible
@@ -52,6 +53,11 @@ class SalesforceStream(RESTStream):
 
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = "$.next"
+
+    @staticmethod
+    def _url_encode(val: Any) -> str:
+        """Encode path params so OCAPI reserved chars like () , are escaped."""
+        return quote(str(val), safe="")
 
     @property
     def parallelization_limit(self) -> int:
@@ -254,6 +260,12 @@ class SalesforceStream(RESTStream):
 
             raise RetriableAPIError(msg, response)
         res_json = None
+
+        # https://sfcclearning.com/infocenter/OCAPI/current/data/Resources/CustomerGroups.php
+        if response.status_code == 204 and response.reason == "No Content":
+            self.logger.info(f"No content found for url:{response.request.url}")
+            return
+
         try:
             res_json = response.json()
         except Exception as exc:
