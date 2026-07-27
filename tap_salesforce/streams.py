@@ -445,7 +445,7 @@ class ProductsDataApiStream(SalesforceStream):
                 "all"
             ],
             "select": "(**)",
-            "count": self.get_request_page_size(),
+            "count": self.get_page_size(),
             "start": next_page_token
         }
     
