@@ -60,23 +60,23 @@ class SalesforceStream(RESTStream):
     next_page_token_jsonpath = "$.next"
 
     def get_page_size(self) -> int:
-        """Return the configured page size, falling back to DEFAULT_PAGE_SIZE."""
-        return int(self.config.get("page_size", self.DEFAULT_PAGE_SIZE))
+        """Return effective page size from override, config, or default."""
+        return int(
+            getattr(self, "_page_size_override", None)
+            or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
+        )
 
     def get_request_page_size(self) -> Optional[int]:
-        """Return the effective page size for paginated GET/POST count params."""
-        if hasattr(self, "_page_size_override"):
-            return int(self._page_size_override)
-        if "count" in type(self).__dict__:
+        """Return page size for count params when this stream paginates via count."""
+        if hasattr(self, "_page_size_override") or "count" in type(self).__dict__:
             return self.get_page_size()
         return None
 
     def get_order_page_size(self) -> int:
-        """Return page size for order search, honoring order-specific overrides."""
-        if hasattr(self, "_page_size_override"):
-            return int(self._page_size_override)
+        """Return page size for order search, preferring order_page_size when set."""
         return int(
-            self.config.get("order_page_size")
+            getattr(self, "_page_size_override", None)
+            or self.config.get("order_page_size")
             or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
         )
 
@@ -99,9 +99,7 @@ class SalesforceStream(RESTStream):
 
     @property
     def parallelization_limit(self) -> int:
-        if hasattr(self, "parent_stream_type") and self.parent_stream_type is not None:
-            return 5
-        return 5
+        return self.CONNECTION_POOL_SIZE
 
     @property
     def requests_session(self) -> requests.Session:
@@ -247,7 +245,7 @@ class SalesforceStream(RESTStream):
             # to filter and restart pagination from 0
             pagination_limit_streams = ["orders"] #it seems that this is the only endpoint that has this limit so far.
             pagination_limit = 10000
-            page_size = self.config.get("order_page_size", 200)
+            page_size = self.get_order_page_size()
             if (
                 self.name in pagination_limit_streams
                 and self.replication_key
