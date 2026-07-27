@@ -1183,7 +1183,7 @@ class OrdersStream(SalesforceStream):
             }
 
         payload = {
-            "count": self.get_order_page_size(),
+            "count": self.get_page_size(),
             "query" : query,
             "select" : "(**)",
             "sorts" : [{"field":"last_modified", "sort_order":"asc"}],

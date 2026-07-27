@@ -60,7 +60,13 @@ class SalesforceStream(RESTStream):
     next_page_token_jsonpath = "$.next"
 
     def get_page_size(self) -> Optional[int]:
-        """Return page size for count params when this stream paginates via count."""
+        """Return effective page size from override, config, or default."""
+        if getattr(self, "name", None) == "orders":
+            return int(
+                getattr(self, "_page_size_override", None)
+                or self.config.get("order_page_size")
+                or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
+            )
         if hasattr(self, "_page_size_override") or "count" in type(self).__dict__:
             return int(
                 getattr(self, "_page_size_override", None)
@@ -68,20 +74,9 @@ class SalesforceStream(RESTStream):
             )
         return None
 
-    def get_order_page_size(self) -> int:
-        """Return page size for order search, preferring order_page_size when set."""
-        return int(
-            getattr(self, "_page_size_override", None)
-            or self.config.get("order_page_size")
-            or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
-        )
-
     def reduce_page_size_on_error(self) -> None:
         """Lower page size after a retriable error; no-op when already at minimum."""
-        if self.name == "orders":
-            count = self.get_order_page_size()
-        else:
-            count = self.get_page_size() or self.DEFAULT_PAGE_SIZE
+        count = self.get_page_size() or self.DEFAULT_PAGE_SIZE
         if count > 40:
             reduced = count - 20
             self._page_size_override = reduced
@@ -241,7 +236,7 @@ class SalesforceStream(RESTStream):
             # to filter and restart pagination from 0
             pagination_limit_streams = ["orders"] #it seems that this is the only endpoint that has this limit so far.
             pagination_limit = 10000
-            page_size = self.get_order_page_size()
+            page_size = self.get_page_size()
             if (
                 self.name in pagination_limit_streams
                 and self.replication_key
