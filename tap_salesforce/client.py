@@ -59,17 +59,13 @@ class SalesforceStream(RESTStream):
     records_jsonpath = "$[*]"
     next_page_token_jsonpath = "$.next"
 
-    def get_page_size(self) -> int:
-        """Return effective page size from override, config, or default."""
-        return int(
-            getattr(self, "_page_size_override", None)
-            or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
-        )
-
-    def get_request_page_size(self) -> Optional[int]:
+    def get_page_size(self) -> Optional[int]:
         """Return page size for count params when this stream paginates via count."""
         if hasattr(self, "_page_size_override") or "count" in type(self).__dict__:
-            return self.get_page_size()
+            return int(
+                getattr(self, "_page_size_override", None)
+                or self.config.get("page_size", self.DEFAULT_PAGE_SIZE)
+            )
         return None
 
     def get_order_page_size(self) -> int:
@@ -85,7 +81,7 @@ class SalesforceStream(RESTStream):
         if self.name == "orders":
             count = self.get_order_page_size()
         else:
-            count = self.get_request_page_size() or self.DEFAULT_PAGE_SIZE
+            count = self.get_page_size() or self.DEFAULT_PAGE_SIZE
         if count > 40:
             reduced = count - 20
             self._page_size_override = reduced
@@ -297,7 +293,7 @@ class SalesforceStream(RESTStream):
             params["expand"] = self.expand
         if hasattr(self,"include_all"):
             params["include_all"] = self.include_all
-        page_size = self.get_request_page_size()
+        page_size = self.get_page_size()
         if page_size is not None:
             params["count"] = page_size
         if self.name == "products_search":
