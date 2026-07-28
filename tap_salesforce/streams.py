@@ -1358,6 +1358,7 @@ class VariationGroupStream(SalesforceStream):
         th.Property("variation_attributes", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
         th.Property("variation_values", th.CustomType({"type": ["object", "string"]})),
         th.Property("variation_groups", th.ArrayType(th.CustomType({"type": ["object", "string"]}))),
+        th.Property("primary_categories", th.CustomType({"type": ["object", "array"]})),
         th.Property("c_color", th.StringType),
         th.Property("c_refinementColor", th.StringType),
         th.Property("c_size", th.StringType),
