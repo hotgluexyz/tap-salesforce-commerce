@@ -2,7 +2,7 @@
 
 import requests
 from requests.adapters import HTTPAdapter
-from typing import Any, Dict, Optional, Iterable, List
+from typing import Any, Dict, Optional, Iterable
 from urllib.parse import quote
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
