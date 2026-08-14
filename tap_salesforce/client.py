@@ -2,7 +2,7 @@
 
 import requests
 from requests.adapters import HTTPAdapter
-from typing import Any, Dict, Optional, Iterable
+from typing import Any, Dict, Optional, Iterable, List
 from urllib.parse import quote
 
 from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
@@ -405,3 +405,68 @@ class SalesforceStream(RESTStream):
                 )
             # Cycle until get_next_page_token() no longer returns a value
             finished = next_page_token is None
+
+    def _prepare_estimate_request(
+        self, context: Optional[dict], start_page: int
+    ) -> requests.PreparedRequest:
+        """Build the stream's first-page request with count=1 for a cheap total."""
+        params = dict(self.get_url_params(context, None) or {})
+        params["count"] = 1
+
+        request_data = self.prepare_request_payload(context, None)
+        if isinstance(request_data, dict):
+            request_data = {**request_data, "count": 1, "start": start_page}
+
+        return self.build_prepared_request(
+            method=self.rest_method,
+            url=self.get_url(context),
+            params=params,
+            headers=self.http_headers,
+            json=request_data,
+        )
+
+    def _fetch_estimated_total(self, context: Optional[dict], start_page: int) -> int:
+        prepared_request = self._prepare_estimate_request(context, start_page)
+        resp = self.request_decorator(self._request)(prepared_request, context)
+        data = resp.json()
+        if "total" not in data:
+            return None
+        return data["total"]
+
+    def get_estimated_record_count(self) -> Optional[int]:
+        """Return OCAPI ``total`` for this stream's sync query, if available.
+
+        Uses the same endpoint/filters as sync with ``count=1``. Returns None when
+        the stream has no list API (e.g. in-memory ``products_ids``).
+        """
+        start_page = 0
+
+        if self.name == "products_ids":
+            return None
+
+    
+        if self.name == "orders":
+            order_ids = self.config.get("order_ids")
+            if order_ids:
+                return len(order_ids)
+            
+            site_id = self.config.get("site_id", "")
+            if "," in site_id:
+                site_ids = site_id.replace(" ", "").split(",")
+                total = 0
+                for site_id in site_ids:
+                    context = {"site_id": site_id}
+                    #restart replication for each site
+                    self._write_starting_replication_value(context)
+                    total += self._fetch_estimated_total(context, start_page)
+                return total
+        
+        
+        if self.name == "products_data_api":
+            # Data API product_search omits ``total`` on non-terminal pages. One
+            # past-end request (``start=1000000``) returns ``total`` when the window
+            # is smaller than that offset; otherwise returns None.
+            start_page = 1000000
+        
+
+        return self._fetch_estimated_total(None, start_page)
