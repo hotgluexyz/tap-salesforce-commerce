@@ -458,7 +458,7 @@ class SalesforceStream(RESTStream):
                     context = {"site_id": site_id}
                     #restart replication for each site
                     self._write_starting_replication_value(context)
-                    total += self._fetch_estimated_total(context, start_page)
+                    total += self._fetch_estimated_total(context, start_page) or 0
                 return total
         
         
