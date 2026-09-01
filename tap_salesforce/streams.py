@@ -4,6 +4,7 @@ from hotglue_singer_sdk import typing as th
 from typing import Iterable, Optional, cast, Dict, Any
 from tap_salesforce.client import SalesforceStream
 import requests
+import backoff
 from simplejson.scanner import JSONDecodeError 
 from hotglue_singer_sdk.exceptions import FatalAPIError, RetriableAPIError
 from datetime import datetime
@@ -310,6 +311,12 @@ class ProductsStream(SalesforceStream):
                     params["currency"] = self.currencies[next_page_token]
         return params
     
+    def backoff_max_tries(self) -> int:
+        return 10
+
+    def backoff_wait_generator(self):
+        return backoff.expo(factor=5, max_value=120)
+
     def parse_response(self, response: requests.Response):
         if response.status_code not in [400, 500]:
             return super().parse_response(response)
