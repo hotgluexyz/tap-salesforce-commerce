@@ -12,6 +12,38 @@ from hotglue_singer_sdk.helpers.jsonpath import extract_jsonpath
 import copy
 import threading
 
+
+def price_adjustment_type() -> th.ObjectType:
+    """OCAPI price_adjustment, which hangs off product items, shipping items
+    and the order itself.
+
+    `coupon_code` is the property carrying the code that triggered the
+    promotion; it is populated only when the adjustment came from a coupon.
+    Returns a new instance per call so the three usages don't share state.
+    """
+    return th.ObjectType(
+        th.Property("_type", th.StringType),
+        th.Property("applied_discount", th.ObjectType(
+            th.Property("_type", th.StringType),
+            th.Property("amount", th.NumberType),
+            th.Property("percentage", th.NumberType),
+            th.Property("price_book_id", th.StringType),
+            th.Property("type", th.StringType),
+        )),
+        th.Property("coupon_code", th.StringType),
+        th.Property("created_by", th.StringType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("custom", th.BooleanType),
+        th.Property("item_text", th.StringType),
+        th.Property("last_modified", th.DateTimeType),
+        th.Property("manual", th.BooleanType),
+        th.Property("price", th.NumberType),
+        th.Property("price_adjustment_id", th.StringType),
+        th.Property("promotion_id", th.StringType),
+        th.Property("promotion_link", th.StringType),
+        th.Property("reason_code", th.StringType),
+    )
+
 class InventoryListsStream(SalesforceStream):
     """Define custom stream."""
 
@@ -1026,6 +1058,14 @@ class OrdersStream(SalesforceStream):
         ),
         th.Property("channel_type", th.StringType),
         th.Property("confirmation_status", th.StringType),
+        th.Property("coupon_items", th.ArrayType(
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("code", th.StringType),
+                th.Property("coupon_item_id", th.StringType),
+                th.Property("status_code", th.StringType),
+                th.Property("valid", th.BooleanType),
+            ))),
         th.Property("created_by", th.StringType),
         th.Property("creation_date", th.DateTimeType),
         th.Property("currency", th.StringType),
@@ -1050,6 +1090,8 @@ class OrdersStream(SalesforceStream):
             th.Property("link", th.StringType),
         )),
         th.Property("order_no", th.StringType),
+        th.Property("order_price_adjustments",
+            th.ArrayType(price_adjustment_type())),
         th.Property("order_token", th.StringType),
         th.Property("order_total", th.NumberType),
         th.Property("payment_instruments",
@@ -1072,6 +1114,8 @@ class OrdersStream(SalesforceStream):
                     th.Property("item_id", th.StringType),
                     th.Property("item_text", th.StringType),
                     th.Property("price", th.NumberType),
+                    th.Property("price_adjustments",
+                        th.ArrayType(price_adjustment_type())),
                     th.Property("price_after_item_discount", th.NumberType),
                     th.Property("price_after_order_discount", th.NumberType),
                     th.Property("product_id", th.StringType),
@@ -1144,6 +1188,24 @@ class OrdersStream(SalesforceStream):
         th.Property("taxation", th.StringType),
         th.Property("tax_rounded_at_group", th.BooleanType),
         th.Property("tax_total", th.NumberType),
+        ))),
+        th.Property("shipping_items",
+            th.ArrayType(
+                th.ObjectType(
+                    th.Property("_type", th.StringType),
+                    th.Property("adjusted_tax", th.NumberType),
+                    th.Property("base_price", th.NumberType),
+                    th.Property("item_id", th.StringType),
+                    th.Property("item_text", th.StringType),
+                    th.Property("price", th.NumberType),
+                    th.Property("price_adjustments",
+                        th.ArrayType(price_adjustment_type())),
+                    th.Property("price_after_item_discount", th.NumberType),
+                    th.Property("shipment_id", th.StringType),
+                    th.Property("tax", th.NumberType),
+                    th.Property("tax_basis", th.NumberType),
+                    th.Property("tax_class_id", th.StringType),
+                    th.Property("tax_rate", th.NumberType),
         ))),
         th.Property("tax_total", th.NumberType),
         th.Property("shipping_status", th.StringType),
