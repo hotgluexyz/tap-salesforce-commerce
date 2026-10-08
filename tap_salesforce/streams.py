@@ -515,6 +515,27 @@ class ProductVariationsListStream(SalesforceStream):
         # parse_response as usual
         yield from extract_jsonpath(self.records_jsonpath, input=res_json)
 
+
+class ProductVariationGroupsStream(SalesforceStream):
+    """List variation groups for each master and queue their IDs for the shop products stream."""
+
+    name = "product_variation_groups"
+    path = "/products/{master_product_id}/variation_groups"
+    count = 200
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = ProductsDataApiStream
+
+    schema = th.PropertiesList(
+        th.Property("product_id", th.StringType),
+    ).to_dict()
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        yield from extract_jsonpath(self.records_jsonpath, input=res_json)
+
+
 class ProductsVariantsDataApiStream(SalesforceStream):
     """Define product variants data stream."""
 
