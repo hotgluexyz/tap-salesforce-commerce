@@ -317,16 +317,30 @@ class ProductsStream(SalesforceStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         # using to iterate through currencies to get all available prices
-        previous_token = previous_token or 0
+        previous_token = 0 if previous_token is None else previous_token
+        failed_currency = None
+        if response.status_code == 400:
+            try:
+                fault = response.json().get("fault", {})
+            except (JSONDecodeError, ValueError):
+                fault = {}
+            if fault.get("type") == "UnsupportedCurrencyException":
+                failed_currency = fault.get("arguments", {}).get("currency")
+
         with self._currencies_lock:
-            currencies_length = len(self.currencies)
-            if previous_token < currencies_length - 1:
+            # Removal shifts the next currency into this index, so do not advance.
+            if (
+                failed_currency
+                and failed_currency not in self.currencies
+                and previous_token < len(self.currencies)
+            ):
                 self.first_currency = None
-                next_page_token = previous_token + 1
-                return next_page_token
-            
-            #initialize first curency for next product
-            if currencies_length > 0:
+                return previous_token
+            if previous_token < len(self.currencies) - 1:
+                self.first_currency = None
+                return previous_token + 1
+            # initialize first currency for the next product
+            if self.currencies:
                 self.first_currency = self.currencies[0]
         return None
 
@@ -337,7 +351,7 @@ class ProductsStream(SalesforceStream):
         params = super().get_url_params(context, next_page_token)
         if self.first_currency:
             params["currency"] = self.first_currency
-        elif next_page_token:
+        elif next_page_token is not None:
             with self._currencies_lock:
                 if next_page_token < len(self.currencies):
                     params["currency"] = self.currencies[next_page_token]
