@@ -317,16 +317,30 @@ class ProductsStream(SalesforceStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         # using to iterate through currencies to get all available prices
-        previous_token = previous_token or 0
+        previous_token = 0 if previous_token is None else previous_token
+        failed_currency = None
+        if response.status_code == 400:
+            try:
+                fault = response.json().get("fault", {})
+            except (JSONDecodeError, ValueError):
+                fault = {}
+            if fault.get("type") == "UnsupportedCurrencyException":
+                failed_currency = fault.get("arguments", {}).get("currency")
+
         with self._currencies_lock:
-            currencies_length = len(self.currencies)
-            if previous_token < currencies_length - 1:
+            # Removal shifts the next currency into this index, so do not advance.
+            if (
+                failed_currency
+                and failed_currency not in self.currencies
+                and previous_token < len(self.currencies)
+            ):
                 self.first_currency = None
-                next_page_token = previous_token + 1
-                return next_page_token
-            
-            #initialize first curency for next product
-            if currencies_length > 0:
+                return previous_token
+            if previous_token < len(self.currencies) - 1:
+                self.first_currency = None
+                return previous_token + 1
+            # initialize first currency for the next product
+            if self.currencies:
                 self.first_currency = self.currencies[0]
         return None
 
@@ -337,7 +351,7 @@ class ProductsStream(SalesforceStream):
         params = super().get_url_params(context, next_page_token)
         if self.first_currency:
             params["currency"] = self.first_currency
-        elif next_page_token:
+        elif next_page_token is not None:
             with self._currencies_lock:
                 if next_page_token < len(self.currencies):
                     params["currency"] = self.currencies[next_page_token]
@@ -514,6 +528,28 @@ class ProductVariationsListStream(SalesforceStream):
         SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
         # parse_response as usual
         yield from extract_jsonpath(self.records_jsonpath, input=res_json)
+
+
+class ProductVariationGroupsStream(SalesforceStream):
+    """List variation groups for each master and queue their IDs for the shop products stream."""
+
+    name = "product_variation_groups"
+    path = "/products/{master_product_id}/variation_groups"
+    count = 200
+    records_jsonpath = "$.data[*]"
+    parent_stream_type = ProductsDataApiStream
+    primary_keys = ["product_id"]
+
+    schema = th.PropertiesList(
+        th.Property("product_id", th.StringType),
+    ).to_dict()
+
+    def parse_response(self, response: requests.Response) -> Iterable[dict]:
+        res_json = response.json()
+        product_ids = [{"product_id": prod["product_id"]} for prod in res_json.get("data", [])]
+        SalesforceStream.product_ids = SalesforceStream.product_ids + product_ids
+        yield from extract_jsonpath(self.records_jsonpath, input=res_json)
+
 
 class ProductsVariantsDataApiStream(SalesforceStream):
     """Define product variants data stream."""
