@@ -538,6 +538,7 @@ class ProductVariationGroupsStream(SalesforceStream):
     count = 200
     records_jsonpath = "$.data[*]"
     parent_stream_type = ProductsDataApiStream
+    primary_keys = ["product_id"]
 
     schema = th.PropertiesList(
         th.Property("product_id", th.StringType),
