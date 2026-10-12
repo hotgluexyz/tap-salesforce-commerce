@@ -317,7 +317,10 @@ class ProductsStream(SalesforceStream):
         self, response: requests.Response, previous_token: Optional[Any]
     ) -> Optional[Any]:
         # using to iterate through currencies to get all available prices
-        previous_token = 0 if previous_token is None else previous_token
+        if isinstance(previous_token, tuple):
+            previous_token = previous_token[0]
+        else:
+            previous_token = 0 if previous_token is None else previous_token
         failed_currency = None
         if response.status_code == 400:
             try:
@@ -335,7 +338,9 @@ class ProductsStream(SalesforceStream):
                 and previous_token < len(self.currencies)
             ):
                 self.first_currency = None
-                return previous_token
+                # Pair the index with the currency now in that slot. request_records
+                # raises if the next token equals the token just used.
+                return (previous_token, self.currencies[previous_token])
             if previous_token < len(self.currencies) - 1:
                 self.first_currency = None
                 return previous_token + 1
@@ -352,9 +357,10 @@ class ProductsStream(SalesforceStream):
         if self.first_currency:
             params["currency"] = self.first_currency
         elif next_page_token is not None:
+            currency_index = next_page_token[0] if isinstance(next_page_token, tuple) else next_page_token
             with self._currencies_lock:
-                if next_page_token < len(self.currencies):
-                    params["currency"] = self.currencies[next_page_token]
+                if currency_index < len(self.currencies):
+                    params["currency"] = self.currencies[currency_index]
         return params
     
     def backoff_max_tries(self) -> int:
