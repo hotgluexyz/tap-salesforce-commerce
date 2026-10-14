@@ -76,12 +76,31 @@ class ProductInventoryRecords(SalesforceStream):
     records_jsonpath = "$.data[*]"
     parent_stream_type = InventoryListsStream
     replication_key = None
+    select = "(**)"
 
     schema = th.PropertiesList(
         th.Property("_type", th.StringType),
         th.Property("_resource_state", th.StringType),
-        th.Property("product_id", th.StringType),
+        th.Property(
+            "allocation",
+            th.ObjectType(
+                th.Property("_type", th.StringType),
+                th.Property("amount", th.NumberType),
+                th.Property("reset_date", th.DateTimeType),
+            ),
+        ),
+        th.Property("ats", th.NumberType),
+        th.Property("creation_date", th.DateTimeType),
+        th.Property("inventory_list_id", th.StringType),
+        th.Property("inventory_turnover", th.NumberType),
+        th.Property("last_modified", th.DateTimeType),
         th.Property("link", th.StringType),
+        th.Property("perpetual_flag", th.BooleanType),
+        th.Property("pre_order_back_order_allocation", th.NumberType),
+        th.Property("pre_order_back_order_handling", th.StringType),
+        th.Property("product_id", th.StringType),
+        th.Property("quantity_on_order", th.NumberType),
+        th.Property("stock_level", th.NumberType),
     ).to_dict()
 
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
