@@ -79,7 +79,6 @@ class ProductInventoryRecords(SalesforceStream):
     select = "(**)"
 
     schema = th.PropertiesList(
-        th.Property("_v", th.StringType),
         th.Property("_type", th.StringType),
         th.Property("_resource_state", th.StringType),
         th.Property(
